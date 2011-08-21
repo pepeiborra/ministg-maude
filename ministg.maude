@@ -1,0 +1,554 @@
+
+***( 
+
+An implementation of the reduction relation in 
+
+"How to make a fast curry: push/enter vs eval/apply" - 
+   Simon Marlow and Simon Peyton Jones. Proc International Conference on Functional Programming, Snowbird, Sept 2004, pp4-15. 
+
+Inspired by Bernie Pope's ministg package:
+
+http://hackage.haskell.org/package/ministg
+
+All the errors and omissions are of my own.
+Jose Iborra.
+
+***)
+
+fmod MAYBE{X :: TRIV} is
+    sort Maybe{X} .
+    subsort X$Elt < Maybe{X} .
+    op nothing  : -> Maybe{X} [ctor] .
+endfm
+
+fmod MINISTG-SORTS is
+     protecting QID .
+     protecting INT .
+     protecting STRING .
+     protecting MAYBE{Nat} .
+
+     sorts MyBool FunApp Alt Exp Lit Atom Var PrimOp Binding AtomBinding Constructor Obj Continuation .
+     subsort Qid < Var .
+     subsort Qid < Constructor .
+     subsorts Int < Lit .
+     subsort Var Lit < Atom .
+     subsorts FunApp Atom < Exp .
+     
+     sort ConstructorExp .
+     subsorts Constructor < ConstructorExp .
+     sort Stack .
+     subsort Continuation < Stack .
+     sorts Heap NeHeap .
+     subsort Binding < NeHeap < Heap .
+     sorts AltGroup NeAltGroup .
+     subsort Alt < NeAltGroup < AltGroup .
+
+     vars Z E EE : Exp .
+     var B : Binding .
+     vars H BB B1 B2 : Heap . 
+
+     op B _ : Bool -> Lit [ctor] .
+
+     op let _ in _ : Binding Exp -> Exp [ctor format (g o g on+i -) ] .
+     op let { _ } in _ : Heap Exp -> Exp .
+     eq let { B ; BB } in Z = let B in let { BB } in Z .
+     eq let { nil } in Z = Z .
+     op _ = _ : Var Obj -> Binding [ctor prec 39 format (d b o d)] .
+     op _;_ : Heap Heap -> Heap [ctor assoc prec 42 id: nil format (d m! no d)] .
+     op _;_ : NeHeap Heap -> NeHeap [ctor ditto] .
+     op nil : -> Heap .
+     op __ : Stack Stack -> Stack [ctor assoc id: nil format (d n d) ] .
+     op nil : -> Stack [ctor] .
+
+     op case _ of { _ } : Exp AltGroup -> Exp [ctor format (g o g sb on+ nbi- o) ] .
+     op _;_ : AltGroup AltGroup -> AltGroup [ctor assoc prec 42 id: nil format(d d n d) ] .
+     op _;_ : NeAltGroup AltGroup -> NeAltGroup [ctor ditto ] .
+     op nil : -> AltGroup [ctor] .
+     op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
+     op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
+
+     op stack _ _ : String Exp -> Exp [ctor format (c o d d) ] .
+     op FunApp _ _ _ : Var Maybe{Nat} Exp -> FunApp [ctor gather (e e E) prec 25  format (c o d d d) ] .
+
+endfm
+
+view Var from TRIV to MINISTG-SORTS is sort Elt to Var . endv
+view Atom from TRIV to MINISTG-SORTS is sort Elt to Atom . endv
+view AtomBinding from TRIV to MINISTG-SORTS is sort Elt to AtomBinding . endv
+
+fmod MINISTG-SYNTAX is including MINISTG-SORTS .
+
+     protecting LIST-AND-SET{Atom} * (sort List{Atom} to AtomList, sort NeList{Atom} to NeAtomList, sort Set{Atom} to AtomSet) .
+     protecting SET{AtomBinding} * (sort Set{AtomBinding} to Substitution, sort NeSet{AtomBinding} to NeSubstitution) .
+
+     sorts Configuration  .
+     subsort AtomBinding < Substitution .
+     subsort NeAtomList < Exp .
+
+     vars Z E EE : Exp .
+     var B : Binding .
+     vars H BB B1 B2 : Heap . 
+     vars F X V V' : Var . 
+     vars AA XX VV : AtomList .
+     vars S S1 S2 : Stack . 
+     var O : Obj .
+     var C : Constructor .
+     vars A A' : Atom .
+     vars ALT AA1 AA2 : AltGroup .
+     var SUBST : Substitution .
+     var AB : AtomBinding .
+     var SCC : String .
+     var Ar : Maybe{Nat} .
+    
+     op _ _ : ConstructorExp AtomList -> ConstructorExp [ditto] .
+     op _ _ : PrimOp AtomList -> Exp [ctor] .
+
+     op plus# : -> PrimOp [ctor format (c o)] .
+     op sub# : -> PrimOp [ctor format (c o)] .
+     op mult# : -> PrimOp [ctor format (c o)] .
+     op eq# : -> PrimOp [ctor format (c o)] .
+     op lt# : -> PrimOp [ctor format (c o)] .
+     op lte# : -> PrimOp [ctor format (c o)] .
+     op gt# : -> PrimOp [ctor format (c o)] .
+     op gte# : -> PrimOp [ctor format (c o)] .
+     op intToBool# : -> PrimOp [ctor format (c o)] .
+
+     op THUNK _  : Exp -> Obj [ctor] .
+     op PAP(_ _) : Var AtomList -> Obj [ctor format (c d o d c o)] .
+     op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
+     op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
+     op BLACKHOLE : -> Obj [ctor format (c o)] .
+
+     op isValue _ : Obj -> Bool .
+     eq isValue(THUNK E) = false .
+     eq isValue(BLACKHOLE) = false .
+     eq isValue O = true [owise] .
+
+     op isFunOrPap _ : Obj -> Bool .
+     eq isFunOrPap FUN(VV -> E) = true .
+     eq isFunOrPap PAP(F AA) = true .
+     eq isFunOrPap O = false [owise] .
+
+     op UPD _ : Var -> Continuation [ctor] .
+     op CASE OF _ : AltGroup -> Continuation [ctor format (d d n d)] .
+     op ARGS _ : AtomList -> Continuation [ctor] .
+
+     *** **************
+     *** Free Variables
+     *** **************
+     
+     op vars _ : Obj -> AtomSet .
+     eq vars (THUNK E)  = vars E .
+     eq vars PAP(F AA) = F, vars AA .
+     eq vars CON(C AA) = vars AA .
+     eq vars FUN(AA -> E) = vars E \ vars AA .
+     eq vars BLACKHOLE = empty .
+
+     op vars _ : Exp -> AtomSet .
+     eq vars(stack SCC E) = vars E .
+     eq vars(case E of { ALT }) = vars ALT, vars E .
+     eq vars(let V = O in E) = vars O, vars E \ V .
+     eq vars(FunApp F Ar AA) = F, vars AA .
+     eq vars(OP:PrimOp AA) = vars AA .
+     eq vars(F EE) = vars F, vars EE .
+     eq vars(V) = V .
+
+     op vars _ : AltGroup -> AtomSet .
+     eq vars(C AA -> E ; ALT ) = (vars E \ vars AA ), vars ALT .
+     eq vars(V    -> E ; ALT ) = vars E \ V, vars ALT .
+     eq vars (nil).AltGroup = empty .
+
+     op vars _ : AtomList -> AtomSet .
+     eq  vars(nil).AtomList = empty .
+     ceq vars(A AA) = A, vars AA      if A :: Var .
+     eq  vars(A AA) = vars AA [owise] .
+
+
+     *** **************
+     *** Substitutions 
+     *** **************
+     
+     *** atom bindings
+     op _ :-> _ : Var Atom -> AtomBinding [ctor] .
+     op _ :-> _ : AtomList AtomList -> Substitution .
+     op _ : Heap -> Substitution .
+     eq nil :-> nil = empty .
+     eq (V VV:NeAtomList) :-> (A AA:NeAtomList) = V :-> A, VV:NeAtomList :-> AA:NeAtomList .
+
+
+     *** remove bindings from a substitution
+     op _\\_ : Substitution Var -> Substitution .
+     eq ((V :-> E), SUBST) \\ V = SUBST .
+     eq SUBST \\ nil = SUBST .
+     eq SUBST \\ V = SUBST [owise] .
+     eq SUBST \\ (V VV) = (SUBST \\ V) \\ VV [owise] .
+
+     *** implementation
+     op _ [_] : Obj AtomBinding -> Obj .     
+     eq (THUNK E) [AB] = THUNK(E [AB]) .
+     eq PAP(V AA) [AB] = PAP((V[AB]) (AA [AB])) .
+     eq CON(C AA) [AB] = CON(C (AA [AB])) .
+     eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
+     eq BLACKHOLE [AB] = BLACKHOLE .
+
+     op _ [_] : Heap AtomBinding -> Heap .
+     eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
+     eq [subst-heap-1] : (X = O) [AB] = (X [AB]) = (O [AB]) .
+
+     op _ [_] : AltGroup AtomBinding -> AltGroup .
+     eq (X -> Z ) [AB] = X -> (Z [AB \\ X]) .
+     eq (C VV -> Z ) [AB] = C VV -> (Z [AB \\ VV]) .
+     eq [subst-alt-rec] : (A:Alt ; AA:NeAltGroup) [AB] = A:Alt [AB] ; AA:NeAltGroup [AB] .
+     eq [subst-alt-nil] : (nil).AltGroup [SUBST] = nil .
+
+     op _ [_] : Exp Substitution -> Exp .
+     eq [subst-exp-base] : E [ empty ] = E .
+     eq [subst-exp-rec]  : E [ AB, SUBST:NeSubstitution] = (E [AB]) [SUBST:NeSubstitution] [owise] .
+     eq [subst-exp-primop] : (OP:PrimOp Z:AtomList) [AB] = OP:PrimOp (Z:AtomList [AB]) .
+     eq [subst-exp-atomlist] : (E Z:NeAtomList) [AB] = (E [ AB ]) (Z:NeAtomList [ AB ]) .
+     eq [subst-exp-case] : (case E of { AA1 }) [AB] = case E [AB] of { AA1 [AB] } .
+     ceq [subst-exp-let] : (let V = O in E) [X :-> A] = let V = O [X :-> A] in (E [X :-> A]) if V =/= X .
+     *** eq (let B in E) [AB] = let B in E [owise] .
+     eq [subst-exp-funapp] : (FunApp F Ar AA) [AB] = FunApp (F [AB]) Ar (AA [AB]) .
+     eq [subst-exp-stack] : (stack SCC E) [AB] = stack SCC (E [AB]) .
+     eq [subst-exp-prim]  : (OP:PrimOp AA) [AB] = OP:PrimOp AA .
+     eq [subst-exp-var] : V [V :-> A] = A .
+     eq [subst-exp-var2] : V [AB] = V [owise] .
+     eq [subst-exp-lit]  : X:Lit [AB] = X:Lit .
+
+     op _ [_] : AtomList Substitution -> AtomList .
+***     eq [subst-atomlist-rec] (A AA) [AB] = (A [AB]) (AA [AB]) .
+     eq [subst-atomlist-nil] : (nil).AtomList [AB] = nil . 
+
+     op _ STACK: _ HEAP: _ COUNTER: _ : Exp Stack Heap Nat -> Configuration [ctor prec 80 format (nn nm on++++ nm---- on++++ nm---- o d)] . 
+        --- Ajustar el format despues de quitar las comas
+endfm
+
+fmod MINISTG-PROGRAM is
+     including MINISTG-SYNTAX .
+     protecting MAP{Var, Nat} * (sort Map{Var,Nat} to ArityMap) .
+     sorts Program Log .
+
+     vars B D : Binding .
+     vars H H' H'' BB DD DD' : Heap .
+     var O : Obj .
+     var M : ArityMap .
+     var N : Nat .
+     vars V F : Var .
+     var VV : AtomList .
+     vars E Z : Exp .
+     vars AA EE : AtomList .
+     var Alts : AltGroup .
+     var Atoms : AtomList .
+     var C : Constructor .
+     var S : Stack .
+     var SCC : String .
+     vars NEXT SEEN : AtomSet .
+
+     *** Heap Analysis.
+     op gc : AtomSet Heap -> Heap .
+     eq gc(AA:AtomSet, H) = restrict (reachable(AA:AtomSet,H), H) .
+
+     --- restrict takes a set of vars V and a heap and returns a subheap containing only bindings for elements of V
+     op restrict : AtomSet Heap -> Heap .
+     eq restrict(empty, H) = nil .
+     eq restrict((V, V, VV:AtomSet), H) = restrict(VV:AtomSet, H) .
+     eq restrict((V, VV:AtomSet), (H ; V = O ; H')) = V = O ; restrict(VV:AtomSet, H ; H') .
+     eq restrict((V, VV:AtomSet), H) = restrict(VV:AtomSet, H) [owise] . *** this is probably a bug
+     eq restrict((V, VV:AtomSet), H) = restrict(VV:AtomSet, H) [owise] .
+
+     *** reachble takes a set of root pointers and returns the transitive closure of reachable pointers
+     op reachable : AtomSet Heap -> AtomSet .
+     eq reachable (VV:AtomSet, H) = $reachable(VV:AtomSet, empty, H) .
+ 
+     op $reachable : AtomSet AtomSet Heap -> AtomSet .
+     eq $reachable(empty, SEEN, H) = SEEN .
+     eq $reachable((V,NEXT), (V,SEEN), H) = $reachable( NEXT, (V,SEEN), H) .
+     eq $reachable((V, V, NEXT), SEEN, H) = $reachable( (V,NEXT), SEEN, H) .
+     ceq $reachable((V, NEXT), SEEN, H) = $reachable( (vars O, NEXT), (V, SEEN), H )
+                                           if H' ; V = O ; H'' := H .
+     
+
+     *** Arity Analysis, done in two steps
+     *** 1. mkArityMap collects a table with the arities of declared (top level) functions
+     ***    TODO: extend to handle inner functions
+     op mkArityMap _ : Heap -> ArityMap .
+     eq mkArityMap (V = FUN(VV -> Z) ;  DD) = insert(V, size(VV), mkArityMap DD) .
+     eq mkArityMap (D ; DD ) = mkArityMap DD [owise] .
+     eq mkArityMap nil = empty .
+
+     *** 2. arity transforms the expression replacing adjacent terms by function applications, annotated by arity when known.
+
+     op arity : ArityMap AltGroup -> AltGroup .
+     eq arity(M, (C AA -> E) ; Alts) = (C AA -> arity(M,E)) ; arity(M,Alts) .
+     eq arity(M, (V -> E) ; Alts) = (V -> arity(M,E)) ; arity(M,Alts) .
+     eq arity(M, (nil).AltGroup) = nil .
+     op arity : ArityMap Heap -> Heap .
+     eq arity(M, (V = O ; BB)) = V = arity(M,O) ; arity(M,BB) .
+     op arity : ArityMap Obj -> Obj .
+     eq arity(M, THUNK E) = THUNK (arity(M, E)) .
+     eq arity(M, CON(C Atoms)) = CON(C Atoms) .
+     eq arity(M, BLACKHOLE) = BLACKHOLE .
+     eq arity(M, PAP(V Atoms)) = PAP(V Atoms) .
+     eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
+     op arity : ArityMap Exp -> Exp .
+     eq arity(M, let B in E) = let arity(M, B) in arity(M, E) .
+     eq arity(M, case E of { Alts }) = case arity(M, E) of { arity(M, Alts) } .
+     eq arity(M, stack SCC E) = stack SCC (arity(M, E)) .
+     eq arity(M, OP:PrimOp Atoms) = OP:PrimOp Atoms .
+     eq arity((M, F |-> N), F EE) = FunApp F N EE .
+     eq arity(M, F EE) = FunApp F nothing EE [owise] .
+     eq arity (M, V:Var) = V:Var .
+     op arity : ArityMap Binding -> Binding .
+     eq arity (M, V = O) = (V = arity(M, O)) .
+     op arity : ArityMap Heap -> Heap .
+     eq arity (M, (B ; BB)) = arity(M, B) ;  arity(M, BB) .
+     eq arity(M, (nil).Heap) = nil .
+
+     op Done _ _ : Obj Heap -> Configuration [ctor format (d n n d) ] .
+     op _ [STACK: _ HEAP: _ COUNTER: _ ] : Exp Stack Heap Nat -> Configuration [ctor prec 80 format (nn nm s on++++ nm---- on++++ nm---- o d d)] .
+
+     op STEP _ _ STACK: _ HEAP: _ : Nat Exp Stack Heap -> Log [ctor format (! s on++ nm-- on++++ nm---- on++++ o----)] .
+     op _ HEAP: _ : Obj Heap -> Log [ctor format (++ --n n++++ o----)] .
+     op _ _ : Log Log -> Log [ctor assoc format (n nn d)] .
+
+     *** Takes a full program, performs arity analysis, runs it, and returns the reduction log
+     op eval _ : Heap -> Log .
+     eq eval (DD ; 'main = THUNK E ; DD') = $eval(mkArityMap(DD ; DD'), E, gc(vars E, DD ; DD')) .
+     
+     op $eval : ArityMap [Exp] Heap -> Log .
+     eq $eval(M, E:[Exp] , DD) = bigstep(0, arity(M, E:[Exp])  STACK: nil  HEAP: arity(M, DD)  COUNTER: 0) .
+
+     op bigstep : Nat Configuration -> Log . 
+     ceq bigstep(N, Conf:Configuration) = (STEP N E STACK: S HEAP: H)
+	                                  bigstep(s N, E  STACK: S  HEAP: H  COUNTER: C:Nat)
+	          if E [STACK: S  HEAP: H  COUNTER: C:Nat] := Conf:Configuration .
+
+     eq bigstep(N, Done O H) = O HEAP: H [owise] .
+
+endfm
+
+mod MINISTG-RELATION is including MINISTG-PROGRAM .
+
+     op bool  : Bool -> Exp .
+     eq bool(B:Bool) = if B:Bool then 1 else 0 fi .
+
+     op True : -> Constructor [ctor] .
+     op False : -> Constructor [ctor] .
+
+     pr CONVERSION .
+     pr STRING .
+
+     vars K Ar : Nat .
+     vars N : Rat .
+     vars X Y F' F V V' : Var . 
+     vars XX VV : AtomList .
+     var B : Binding .
+     var BB : Heap . 
+     var S : Stack . 
+     vars H H' H'' : Heap .
+     vars Z E : [Exp] .
+     var C : Constructor .
+     var A : Atom .
+     var O : Obj .
+     vars AA AA' Rest : AtomList . 
+     vars AA1 AA2 : AltGroup .
+
+     crl [LET] :             let V = O in E  
+	                STACK: S  HEAP: H COUNTER: N
+             => --------------------------------------------
+                               E [V :-> V'] 
+                  [STACK: S  HEAP: V' = O ; H COUNTER: N + 1]
+
+                                         if V' := qid(string(V) + string(N, 10)) .
+                                            
+
+    crl [CASE-CON] :     case V of { AA1 ; C XX -> E ; AA2 } 
+                            STACK: S HEAP: H COUNTER: N 
+                  => ----------------------------------------------
+                                    E [ XX :-> AA ]  
+                            [STACK: S HEAP: H  COUNTER: N]
+                                                        if H' ; V = CON ( C AA) ; H'' := H .
+
+     rl [CASE-ANY-LIT] :
+                         case L:Lit of { AA1 ; X -> E }
+                          STACK: S HEAP: H COUNTER: N
+                  =>  ---------------------------------------
+                                 E [ X :-> L:Lit ] 
+                          [STACK: S HEAP: H COUNTER: N] .
+
+     crl [CASE-ANY-VAR] :
+                         case V of { AA1 ; X -> E } 
+                        STACK: S HEAP: H COUNTER: N
+                  =>  ----------------------------------
+                               E [ X :-> V ]
+                        [STACK: S HEAP: H COUNTER: N]        if H' ; V = O ; H'' := H /\
+	                                                         isValue(O) .
+
+     rl [CASE] :                case E of { AA1 }
+                           STACK: S  HEAP: H COUNTER: N
+               => ---------------------------------------------
+                                        E
+                  [STACK: (CASE OF AA1) S  HEAP: H  COUNTER: N] .
+
+     rl [RET1] :                      L:Lit
+                     STACK: (CASE OF AA1) S HEAP: H COUNTER: N
+	       =>   ---------------------------------------------
+                               case L:Lit of { AA1 } 
+                            [STACK: S  HEAP: H  COUNTER: N] .
+                      
+     crl [RET2] :                       V
+                      STACK: (CASE OF AA1) S HEAP: H COUNTER: N
+	       =>   -----------------------------------------------
+                                  case V of { AA1 }
+                            [STACK: S HEAP: H COUNTER: N]
+                                                            if H' ; V = O ; H'' := H /\ isValue(O) .
+
+     rl [THUNK] :                            X 
+                       STACK: S  HEAP: H ; X = THUNK E ; H'  COUNTER: N
+                =>   ----------------------------------------------------
+                                             E
+                     [STACK: (UPD X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N] .
+
+     crl [UPDATE1] :  X
+                     STACK: (UPD Y) S
+                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
+                     COUNTER: N
+                 => ---------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; X = O ; H' ; Y = O ; H''
+                      COUNTER: N]                       if isValue(O) .
+
+
+     crl [UPDATE2] :  X
+                     STACK: (UPD Y) S
+                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
+                     COUNTER: N
+                 => -------------------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; Y = O ; H' ; X = O ; H''
+                      COUNTER: N]                            if isValue(O) .
+
+     crl [KNOWNCALL] :          FunApp F Ar AA 
+                        STACK: S  HEAP: H  COUNTER: N
+                    => --------------------------------
+                                 E [XX :-> AA]
+                        [STACK: S  HEAP: H   COUNTER: N]
+	                                                if size(AA) = Ar /\ 
+                                                        H' ; F = FUN(XX -> E) ; H'' := H .
+
+     crl [EXACT] :      FunApp F nothing AA
+                   STACK: S HEAP: H COUNTER: N
+               =>  ------------------------------
+                          (E [XX :-> AA]) 
+                   [STACK: S  HEAP: H  COUNTER: N]    if H' ; F = FUN(XX -> E) ; H'' := H /\
+	                                                 size(AA) = size(XX) .
+
+     crl [CALLK] :   FunApp F K:Maybe{Nat} (AA Rest)
+                    STACK: S HEAP: H COUNTER: N
+               =>  --------------------------------
+                       (E [XX :-> AA]) Rest  
+                    [STACK: S  HEAP: H  COUNTER: N]     if H' ; F = FUN(XX -> E) ; H'' := H /\
+	                                                 size(AA) > size(XX) .
+
+     crl [PAP] :              FunApp F K:Maybe{Nat} AA
+                          STACK: S HEAP: H COUNTER: N
+             =>  -----------------------------------------------------
+                                     X
+                   [STACK: S  HEAP: (X = PAP(F AA) ; H)  COUNTER: N + 1]
+
+                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
+                                                          size(AA) < size(XX) /\
+	                                                  X := qid ("$" + string(N, 10)) .
+
+    crl [TCALL] :            FunApp F nothing AA
+                        STACK: S  HEAP: H  COUNTER: N
+               => -------------------------------------------
+                                      E
+                   [STACK: (ARGS AA) S  HEAP: H  COUNTER: N]     if H' ; F = THUNK E ; H'' := H .
+
+
+    crl [PCALL] :    FunApp F K:Maybe{Nat} AA
+                   STACK: S  HEAP: H  COUNTER: N
+               => ---------------------------------
+                    FunApp F' nothing (AA' AA)
+                   [STACK: S  HEAP: H  COUNTER: N]         if H' ; F = PAP(F' AA') ; H'' := H .
+
+    crl [RETFUN] :                    F
+                     STACK: (ARGS AA) S  HEAP: H  COUNTER: N
+                 => ------------------------------------------   
+                                     F AA 
+                     [STACK: S  HEAP: H  COUNTER: N]     if H' ; F = O ; H'' := H /\ isFunOrPap O .
+
+
+*** Other rules
+
+
+     crl [DONE] :                    V
+                      STACK: nil HEAP: H COUNTER: N
+              => ---------------------------------------
+                         Done O (gc(vars O, H))         if H' ; V = O ; H'' := H .
+
+     rl [PRIMOP-PLUS] :        plus# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => -----------------------------------
+                                A1:Int + A2:Int
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-SUB] :        sub# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => ----------------------------------
+                              (A1:Int + (- A2:Int))
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-EQ] :         eq# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => ---------------------------------
+                            bool(A1:Int == A2:Int)
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-GT] :         gt# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => -----------------------------------
+                            bool(A1:Int > A2:Int)
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-GTE] :         gte# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => -----------------------------------
+                            bool(A1:Int >= A2:Int)
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-LT] :         lt# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => ------------------------------------
+                            bool(A1:Int < A2:Int)
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     rl [PRIMOP-LTE] :         lte# A1:Int A2:Int
+                          STACK: S  HEAP: H  COUNTER: N
+                     => -----------------------------------
+                            bool(A1:Int <= A2:Int)
+	                  [STACK: S  HEAP: H  COUNTER: N] .
+
+     crl [PRIMOP-INT_TO_BOOL-0] : 
+                                          intToBool# 0
+                                  STACK: S  HEAP: H  COUNTER: N
+                     => ---------------------------------------------------
+                                                 X
+	                  [STACK: S  HEAP: X = CON(False) ; H  COUNTER: s N] 
+            	                                           if X := qid ("$" + string(N, 10)) . 
+
+
+     crl [PRIMOP-INT_TO_BOOL-1] : 
+                                          intToBool# 1
+                                  STACK: S  HEAP: H  COUNTER: N
+                     => ---------------------------------------------------
+                                                 X
+	                  [STACK: S  HEAP: X = CON(True) ; H  COUNTER: s N] 
+            	                                           if X := qid ("$" + string(N, 10)) . 
+
+endm
+

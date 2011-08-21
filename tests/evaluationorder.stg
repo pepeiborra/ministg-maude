@@ -1,0 +1,7 @@
+thunk = FUN(i -> stack "thunk"
+  let { costy = THUNK(stack "costy" fib i);
+        f = THUNK(stack "f" costy);
+        g = THUNK(stack "g" costy) ;       
+      } in plusInt f g);
+
+main = THUNK(stack "main" thunk one)

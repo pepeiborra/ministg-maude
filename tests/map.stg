@@ -1,0 +1,25 @@
+
+
+load "prelude.stg" .
+
+mod MINISTG-MAP is including MINISTG-PRELUDE .
+
+op Z : -> Constructor [ctor format(b o) ] .
+op S : -> Constructor [ctor format(b o) ] .
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'pzero = CON(Z);
+  'pone = CON(S 'pzero);
+  'list1 = CON(Cons 'pone 'nil);
+  'list2 = CON(Cons 'pone 'list1);
+  'list3 = CON(Cons 'pone 'list2);
+  'list4 = CON(Cons 'pone 'list3); 
+  'main = THUNK( let { 'result = THUNK('map 'const 'list4);
+                       'f = THUNK('forcelist 'result) 
+                     } in 'seq 'f 'result )
+  .
+
+endm
+
+rewrite eval(pgm) .

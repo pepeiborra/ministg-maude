@@ -1,0 +1,20 @@
+
+load "prelude.stg" .
+
+mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ; 
+  'sumpap = THUNK('foldl 'plusInt 'zero) ;
+  'list   = THUNK('fromTo 'zero 'two) ;
+
+  'main = THUNK( let  'res = THUNK('sumpap 'list)  in 'seq 'sumpap 'res) 
+  .
+
+endm
+
+rewrite eval(pgm) .
+*** # test that inside sumpap res the stack trace includes both main and sumpap.
+*** # That is, at every moment after list has been evaluated, the stack contains sumpap and main
+

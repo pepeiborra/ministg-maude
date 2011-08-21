@@ -1,0 +1,17 @@
+
+load "prelude.stg" .
+
+mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'list = THUNK('fromTo 'one 'two);
+  'main = THUNK( let { 'dbl = THUNK(stack "dbl" 'dblInt) ;
+       	               'res = THUNK('map 'dbl 'list) 
+       	      	  } 
+         in 'forcelist 'res)
+  .
+endm
+
+rewrite eval(pgm) .

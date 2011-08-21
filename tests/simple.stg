@@ -1,0 +1,14 @@
+load "prelude.stg" .
+
+mod MINISTG-SIMPLE is including MINISTG-PRELUDE .
+
+op simple : -> Heap .
+eq simple =
+ Prelude ;
+ 'f = FUN('x -> 'x) ;
+ 'main = THUNK('f 'one) 
+ .
+
+endm
+
+rewrite eval(simple) .

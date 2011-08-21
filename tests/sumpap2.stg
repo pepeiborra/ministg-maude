@@ -1,0 +1,25 @@
+
+
+
+load "prelude.stg" .
+
+mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+
+  Prelude ;
+
+  'sumpap = THUNK('foldl 'plusInt 'zero);
+  'list = THUNK('fromTo 'zero 'one);
+
+  'sum1 = THUNK( 'sumpap 'list) ;
+
+  'badSumError = ERROR "badsum" ;
+  'sum2 = THUNK( 'sumpap 'badSumError) ;
+
+  'main = THUNK(let 'res = THUNK('plusInt 'sum1 'sum2) in 'seq 'sum1 'res)
+  .
+endm
+
+rewrite eval(pgm) .

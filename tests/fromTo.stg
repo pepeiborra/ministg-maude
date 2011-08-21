@@ -1,0 +1,15 @@
+load "prelude.stg" .
+
+mod MINISTG-FROMTO is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+ 'list = THUNK('fromTo 'zero 'two) ;
+ 'res = THUNK('forcelist 'list) ;
+ 'main = THUNK('seq 'res 'list) 
+ .
+
+endm
+
+rewrite  eval(pgm) .

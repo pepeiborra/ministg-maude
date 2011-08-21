@@ -1,0 +1,17 @@
+load "prelude.stg" .
+
+mod MINISTG-SUM is including MINISTG-PRELUDE .
+
+op sum : -> Heap .
+eq sum =
+  Prelude ;
+ 'list1 = CON(Cons 'one 'nil);
+ 'list2 = CON(Cons 'two 'list1);
+ 'list3 = CON(Cons 'three 'list2);
+ 'list = THUNK('fromTo 'zero 'two) ;
+ 'main = THUNK('sum 'list) 
+ .
+
+endm
+
+rewrite  eval(sum) .
