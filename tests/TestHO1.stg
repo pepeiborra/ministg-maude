@@ -5,6 +5,7 @@ mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
+  Prelude ;
   'list = THUNK('fromTo 'one 'two);
   'main = THUNK( let  'res = THUNK('map 'dblInt 'list) in 'forcelist 'res)
   .
