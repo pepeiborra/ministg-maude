@@ -67,8 +67,7 @@ fmod MINISTG-SORTS is
      op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
      op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
 
-     op stack _ _ : String Exp -> Exp [ctor format (c o d d) ] .
-     op FunApp _ _ _ : Var Maybe{Nat} Exp -> FunApp [ctor gather (e e E) prec 25  format (c o d d d) ] .
+     op stack _ _ : String Exp -> Exp [ctor prec 80 gather (E e)  format (c o d d) ] .
 
 endfm
 
@@ -102,6 +101,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
     
      op _ _ : ConstructorExp AtomList -> ConstructorExp [ditto] .
      op _ _ : PrimOp AtomList -> Exp [ctor] .
+     op FunApp _ _ _ : Var Maybe{Nat} AtomList -> FunApp [ctor gather (e e E) prec 25  format (c o d d d) ] .
 
      op plus# : -> PrimOp [ctor format (c o)] .
      op sub# : -> PrimOp [ctor format (c o)] .
@@ -347,7 +347,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
      var BB : Heap . 
      var S : Stack . 
      vars H H' H'' : Heap .
-     vars Z E : [Exp] .
+     vars Z E : Exp .
      var C : Constructor .
      var A : Atom .
      var O : Obj .
