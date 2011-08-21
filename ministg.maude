@@ -353,6 +353,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
      var O : Obj .
      vars AA AA' Rest : AtomList . 
      vars AA1 AA2 : AltGroup .
+     var SCC : String .
 
      crl [LET] :             let V = O in E  
 	                STACK: S  HEAP: H COUNTER: N
@@ -484,6 +485,13 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
 
 
 *** Other rules
+
+     *** A noop for now, 
+     rl [STACK] :             stack SCC E
+                    STACK: S  HEAP: H  COUNTER: N
+               => ---------------------------------
+                                   E
+                   [STACK: S  HEAP: H  COUNTER: N] .
 
 
      crl [DONE] :                    V
