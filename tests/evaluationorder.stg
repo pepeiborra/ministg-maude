@@ -1,7 +1,20 @@
-thunk = FUN(i -> stack "thunk"
-  let { costy = THUNK(stack "costy" fib i);
-        f = THUNK(stack "f" costy);
-        g = THUNK(stack "g" costy) ;       
-      } in plusInt f g);
 
-main = THUNK(stack "main" thunk one)
+
+load "prelude.stg" .
+
+mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'thunk = FUN('i -> stack "thunk"
+      let { 'costy = THUNK(stack "costy" 'fib 'i);
+            'f = THUNK(stack "f" 'costy);
+            'g = THUNK(stack "g" 'costy) 
+          } in 'plusInt 'f 'g) ;
+
+  'main = THUNK(stack "main" 'thunk 'one)
+  .
+endm
+
+rewrite eval(pgm) .
