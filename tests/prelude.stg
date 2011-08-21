@@ -1,4 +1,4 @@
-load "ministg.maude" .
+load "../ministg.maude" .
 
 mod MINISTG-PRELUDE is including MINISTG-RELATION .
 
