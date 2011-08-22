@@ -49,7 +49,7 @@ fmod MINISTG-SORTS is
 
      op B _ : Bool -> Lit [ctor] .
 
-     op let _ in _ : Binding Exp -> Exp [ctor format (g o g on+i -) ] .
+     op let _ in _ : Binding Exp -> Exp [ctor gather (& &) format (g o g on+i -) ] .
      op let { _ } in _ : Heap Exp -> Exp .
      eq let { B ; BB } in Z = let B in let { BB } in Z .
      eq let { nil } in Z = Z .
@@ -67,7 +67,7 @@ fmod MINISTG-SORTS is
      op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
      op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
 
-     op stack _ _ : String Exp -> Exp [ctor prec 80 gather (E e)  format (c o d d) ] .
+     op stack _ _ : String Exp -> Exp [ctor prec 42 gather (E e)  format (c o d d) ] .
 
 endfm
 
