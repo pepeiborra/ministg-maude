@@ -3,7 +3,7 @@
 
 load "prelude.stg" .
 
-mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+mod MINISTG-SUMPAP2 is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =

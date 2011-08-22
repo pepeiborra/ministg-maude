@@ -1,15 +1,15 @@
 
 load "prelude.stg" .
 
-mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+mod MINISTG-SIMON2 is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
   Prelude ;
   'c = CON (I 21);
   'main = THUNK (stack "main" 
-       let {'g = FUN ('x -> 'dblInt 'x)} in
-       stack "main2" 'g 'c);
+       let 'g = FUN ('x -> 'dblInt 'x) in
+       stack "main2" 'g 'c)
   .
 endm
 
