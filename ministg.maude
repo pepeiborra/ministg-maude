@@ -117,11 +117,13 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
      op PAP(_ _) : Var AtomList -> Obj [ctor format (c d o d c o)] .
      op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
      op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
+     op ERROR _ : String -> Obj [ctor format (!b so d)] .
      op BLACKHOLE : -> Obj [ctor format (c o)] .
 
      op isValue _ : Obj -> Bool .
      eq isValue(THUNK E) = false .
      eq isValue(BLACKHOLE) = false .
+     eq isValue(ERROR E:String) = false .
      eq isValue O = true [owise] .
 
      op isFunOrPap _ : Obj -> Bool .
@@ -143,6 +145,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
      eq vars CON(C AA) = vars AA .
      eq vars FUN(AA -> E) = vars E \ vars AA .
      eq vars BLACKHOLE = empty .
+     eq vars(ERROR S:String) = empty .
 
      op vars _ : Exp -> AtomSet .
      eq vars(stack SCC E) = vars E .
@@ -190,6 +193,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
      eq CON(C AA) [AB] = CON(C (AA [AB])) .
      eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
+     eq [subst-obj-error] : ERROR S:String [AB] = ERROR S:String .
 
      op _ [_] : Heap AtomBinding -> Heap .
      eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
@@ -291,6 +295,7 @@ fmod MINISTG-PROGRAM is
      eq arity(M, BLACKHOLE) = BLACKHOLE .
      eq arity(M, PAP(V Atoms)) = PAP(V Atoms) .
      eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
+     eq arity(M, ERROR E:String) = ERROR E:String .
      op arity : ArityMap Exp -> Exp .
      eq arity(M, let B in E) = let arity(M, B) in arity(M, E) .
      eq arity(M, case E of { Alts }) = case arity(M, E) of { arity(M, Alts) } .
@@ -306,9 +311,11 @@ fmod MINISTG-PROGRAM is
      eq arity(M, (nil).Heap) = nil .
 
      op Done _ _ : Obj Heap -> Configuration [ctor format (d n n d) ] .
+     op Fail _ : String -> Configuration [ctor format (! so d) ] .
      op _ [STACK: _ HEAP: _ COUNTER: _ ] : Exp Stack Heap Nat -> Configuration [ctor prec 80 format (nn nm s on++++ nm---- on++++ nm---- o d d)] .
 
      op STEP _ _ STACK: _ HEAP: _ : Nat Exp Stack Heap -> Log [ctor format (! s on++ nm-- on++++ nm---- on++++ o----)] .
+     op FAIL _ : String -> Log [ctor format (! so d)] .
      op _ HEAP: _ : Obj Heap -> Log [ctor format (++ --n n++++ o----)] .
      op _ _ : Log Log -> Log [ctor assoc format (n nn d)] .
 
@@ -324,7 +331,8 @@ fmod MINISTG-PROGRAM is
 	                                  bigstep(s N, E  STACK: S  HEAP: H  COUNTER: C:Nat)
 	          if E [STACK: S  HEAP: H  COUNTER: C:Nat] := Conf:Configuration .
 
-     eq bigstep(N, Done O H) = O HEAP: H [owise] .
+     eq bigstep(N, Fail msg:String) = FAIL msg:String .
+     eq bigstep(N, Done O H) = O HEAP: H  .
 
 endfm
 
@@ -493,6 +501,13 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                                    E
                    [STACK: S  HEAP: H  COUNTER: N] .
 
+
+     rl [ERROR] :    V
+                     STACK: S  
+                     HEAP: H ; V = ERROR msg:String ; H'  
+                     COUNTER: N
+                => ---------------------------------------
+                     Fail msg:String .
 
      crl [DONE] :                    V
                       STACK: nil HEAP: H COUNTER: N
