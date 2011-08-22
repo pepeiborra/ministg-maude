@@ -1,0 +1,18 @@
+
+
+SYNOPSIS
+
+An implementation of the reduction relation in 
+
+"How to make a fast curry: push/enter vs eval/apply" - 
+   Simon Marlow and Simon Peyton Jones. Proc International Conference on Functional Programming, Snowbird, Sept 2004, pp4-15. 
+
+Inspired by Bernie Pope's ministg package:
+
+http://hackage.haskell.org/package/ministg
+
+All the errors and omissions are entirely my own.
+
+AUTHOR
+
+Jose Iborra 2011.
