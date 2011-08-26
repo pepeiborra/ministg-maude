@@ -19,7 +19,7 @@ fmod MINISTG-SORTS is
      subsorts FunApp Atom < Exp .
      
      sort ConstructorExp .
-     subsorts Constructor < ConstructorExp .
+     subsorts Constructor < ConstructorExp < Exp .
      sort Stack .
      subsort Continuation < Stack .
      sorts Heap NeHeap .
@@ -112,7 +112,8 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      vars CCS CCS' : CCS .
      var Ar : Maybe{Nat} .
     
-     op _ _ : ConstructorExp AtomList -> ConstructorExp [ditto] .
+     mb C AA:NeAtomList : ConstructorExp .
+ 
      op _ _ : PrimOp AtomList -> Exp [ctor] .
      op FunApp _ _ _ : Var Maybe{Nat} AtomList -> FunApp [ctor gather (e e E) prec 25  format (c o d d d) ] .
 
@@ -213,7 +214,8 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      op _ [_] : Obj AtomBinding -> Obj .     
      eq THUNK{CCS} (E) [AB] = THUNK{CCS} (E [AB]) .
      eq PAP{CCS} (V AA) [AB] = PAP{CCS} ((V[AB]) (AA [AB])) .
-     eq CON(C AA) [AB] = CON(C (AA [AB])) .
+     eq CON(C) [AB] = CON(C) .
+     eq CON(C AA) [AB] = CON(C (AA [AB])) [owise] .
      eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
 
@@ -242,10 +244,6 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq [subst-exp-var2] : V [AB] = V [owise] .
      eq [subst-exp-lit]  : X:Lit [AB] = X:Lit .
      eq [subst-exp-error] : error msg:String [AB] = error msg:String .
-
-     op _ [_] : AtomList Substitution -> AtomList .
-***     eq [subst-atomlist-rec] (A AA) [AB] = (A [AB]) (AA [AB]) .
-     eq [subst-atomlist-nil] : (nil).AtomList [AB] = nil . 
 
      op _ STACK: _ HEAP: _ COUNTER: _ CCS: _  : Exp Stack Heap Nat CCS -> Configuration [ctor prec 80 format (nn nm on++++ nm---- on++++ nm---- os nm r o)] . 
 endfm
