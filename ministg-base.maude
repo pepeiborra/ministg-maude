@@ -49,6 +49,8 @@ fmod MINISTG-SORTS is
      op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
      op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
 
+     op error _ : String -> Exp [ctor format (!b r o)] .
+
 endfm
 
 fmod MINISTG-CCS is  including MINISTG-SORTS .
@@ -127,13 +129,11 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq PAP(V AA) = PAP{nilccs} (V AA) .
      op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
      op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
-     op ERROR _ : String -> Obj [ctor format (!b so d)] .
      op BLACKHOLE : -> Obj [ctor format (c o)] .
 
      op isValue _ : Obj -> Bool .
      eq isValue(THUNK{CCS} (E)) = false .
      eq isValue(BLACKHOLE) = false .
-     eq isValue(ERROR E:String) = false .
      eq isValue O = true [owise] .
 
      op isFunOrPap _ : Obj -> Bool .
@@ -155,7 +155,6 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq vars CON(C AA) = vars AA .
      eq vars FUN(AA -> E) = vars E \ vars AA .
      eq vars BLACKHOLE = empty .
-     eq vars(ERROR S:String) = empty .
 
      op vars _ : Exp -> AtomSet .
      eq vars(stack CC E) = vars E .
@@ -165,6 +164,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq vars(OP:PrimOp AA) = vars AA .
      eq vars(F EE) = vars F, vars EE .
      eq vars(V) = V .
+     eq vars(error msg:String) = empty .
 
      op vars _ : AltGroup -> AtomSet .
      eq vars(V    -> E ; ALT ) = vars E \ V, vars ALT .
@@ -211,7 +211,6 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq CON(C AA) [AB] = CON(C (AA [AB])) .
      eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
-     eq [subst-obj-error] : ERROR S:String [AB] = ERROR S:String .
 
      op _ [_] : Heap AtomBinding -> Heap .
      eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
@@ -237,6 +236,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq [subst-exp-var] : V [V :-> A] = A .
      eq [subst-exp-var2] : V [AB] = V [owise] .
      eq [subst-exp-lit]  : X:Lit [AB] = X:Lit .
+     eq [subst-exp-error] : error msg:String [AB] = error msg:String .
 
      op _ [_] : AtomList Substitution -> AtomList .
 ***     eq [subst-atomlist-rec] (A AA) [AB] = (A [AB]) (AA [AB]) .
@@ -281,7 +281,6 @@ fmod MINISTG-ANNOTATE is
      eq annotate (V = CON(C AA)) = V = CON(C AA) .
      eq annotate (V = PAP{CCS} (V' AA)) = V = PAP{CCS} (V' AA) .
 
-     var S : String .
      vars SS SS' : Label .
      *** annotate a program without overwriting user annotations
      op annotateDeep _ : Heap -> Heap .
@@ -304,6 +303,7 @@ fmod MINISTG-ANNOTATE is
      eq annotateDeep SS A:Atom = A:Atom .
      eq annotateDeep SS (A:Atom AA:AtomList) = (annotateDeep SS A:Atom) (annotateDeep SS AA:AtomList) [owise] .
      eq annotateDeep SS (P:PrimOp AA:AtomList) = P:PrimOp (annotateDeep SS AA) .
+     eq annotateDeep SS (error msg:String) = error msg:String .
 
      op annotateDeep _ _ : Label AltGroup -> AltGroup .
      eq annotateDeep SS (nil).AltGroup = nil .
@@ -380,7 +380,6 @@ fmod MINISTG-PROGRAM is
      eq arity(M, BLACKHOLE) = BLACKHOLE .
      eq arity(M, PAP{CCS} (V Atoms)) = PAP{CCS}(V Atoms) .
      eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
-     eq arity(M, ERROR E:String) = ERROR E:String .
 
      op arity : ArityMap Exp -> Exp .
      eq arity(M, let B in E) = let arity(M, B) in arity(M, E) .
@@ -390,6 +389,7 @@ fmod MINISTG-PROGRAM is
      eq arity((M, F |-> N), F EE) = FunApp F N EE .
      eq arity(M, F EE) = FunApp F nothing EE [owise] .
      eq arity (M, V:Var) = V:Var .
+     eq arity (M, error msg:String) = error msg:String .
 
      op arity : ArityMap AltGroup -> AltGroup .
      eq arity(M, (C AA -> E) ; Alts) = (C AA -> arity(M,E)) ; arity(M,Alts) .
@@ -476,8 +476,8 @@ mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
      var C : Constructor .
      var A : Atom .
      var O : Obj .
-     vars AA AA' Rest : AtomList . 
-     vars AA1 AA2 : AltGroup .
+     vars AA AA' : AtomList . 
+     vars AA1 AA2 Alts : AltGroup .
      vars CCS CCS' : CCS .
      var CC : Label .
 
@@ -585,13 +585,25 @@ mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
                    [STACK: S  HEAP: H  COUNTER: N  CCS: CCS | CC] .
 
 
-     rl [ERROR] :    V
+    rl [ERROR] :     error msg:String
                      STACK: S  
-                     HEAP: H ; V = ERROR msg:String ; H'  
+                     HEAP: H
                      COUNTER: N
                      CCS: CCS
                 => ----------y-----------------------------
                      Fail msg:String {CCS} .
+
+     rl [ERROR-LET] :       let BB in error msg:String
+                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                 => -------------------------------------------
+                                 error msg:String
+                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
+
+     rl [ERROR-CASE] :    case error msg:String of { Alts }
+                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                 => -------------------------------------------
+                                 error msg:String
+                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
 
      crl [DONE] :                    V
                       STACK: nil HEAP: H COUNTER: N CCS: CCS
