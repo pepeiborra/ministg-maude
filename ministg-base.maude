@@ -549,13 +549,13 @@ mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
 	                                                 size(AA) = size(XX) .
 
-     crl [CALLK] :     FunApp F K:Maybe{Nat} (AA Rest)
-                    STACK: S HEAP: H COUNTER: N CCS: CCS
-               =>  -------------------------------------------
-                              (E [XX :-> AA]) Rest  
-                    [STACK: S  HEAP: H  COUNTER: N CCS: CCS]  
+     crl [CALLK] :             FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
+                                  STACK: S HEAP: H COUNTER: N CCS: CCS
+               =>  --------------------------------------------------------------------
+                                            (E [XX :-> AA]) 
+                    [STACK: (ARGS{CCS} Rest:NeAtomList) S  HEAP: H  COUNTER: N CCS: CCS]  
                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
-	                                                 size(AA) > size(XX) .
+	                                                 size(AA) = size(XX) .
 
      crl [PAP] :                       FunApp F K:Maybe{Nat} AA
                                  STACK: S HEAP: H COUNTER: N CCS: CCS
