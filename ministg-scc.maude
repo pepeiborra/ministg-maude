@@ -125,10 +125,10 @@ mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-COMMON .
 
  *** Eval/Apply rules
 
-    crl [PCALL] :    FunApp F K:Maybe{Nat} AA
+    crl [PCALL] :          FunApp F K:Maybe{Nat} AA
                    STACK: S  HEAP: H  COUNTER: N CCS: CCS
                => ------------------------------------------
-                    FunApp F' nothing (AA' AA)
+                           FunApp F' nothing (AA' AA)
                    [STACK: S  HEAP: H  COUNTER: N  CCS: CCS']         if H' ; F = PAP{CCS'} (F' AA') ; H'' := H .
 
     crl [RETFUN-RESTORECCS] :  
