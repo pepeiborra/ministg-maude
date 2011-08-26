@@ -405,7 +405,7 @@ fmod MINISTG-PROGRAM is
      *** Log elements
 
      op STEP _ _ STACK: _ HEAP: _ CCS: _ : Nat Exp Stack Heap CCS -> Log [ctor format (!m s on++ nm-- on++++ nm---- on++++ nm---- nr o)] .
-     op FAIL _ {_} : String CCS -> Log [ctor format (! so r d d o)] .
+     op FAIL _ {_} : String CCS -> Log [ctor format (! so sr d d o)] .
      op _ HEAP: _ : Obj Heap -> Log [ctor format (++ --n n++++ o----)] .
      op _ _ : Log Log -> Log [ctor assoc format (n nn d)] .
 
