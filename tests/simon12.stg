@@ -1,7 +1,7 @@
 
 load "prelude.stg" .
 
-mod MINISTG-SIMON9 is including MINISTG-PRELUDE .
+mod MINISTG-SIMON12 is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
@@ -21,16 +21,21 @@ eq pgm =
   .
 endm
 
-mod MINISTG-SIMON9-EVALUATION is
-  including MINISTG-SIMON9 .
+mod MINISTG-SIMON12-EVALUATION is
+  including MINISTG-SIMON12 .
   protecting  MINISTG-RELATION-EVALUATION .
 endm
 
 
-mod MINISTG-SIMON9-EVALUATION-ARGS is
-  including MINISTG-SIMON9 .
+mod MINISTG-SIMON12-EVALUATION-ARGS is
+  including MINISTG-SIMON12 .
   protecting  MINISTG-RELATION-EVALUATION-ARGS .
 endm
 
-rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
---- rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .
+
+rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
+--- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
+
+
+rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .

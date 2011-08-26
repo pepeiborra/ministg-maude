@@ -411,6 +411,14 @@ fmod MINISTG-PROGRAM is
 
      pr LIST{CCS} .
 
+     --- get the last non null stack trace in the log
+     op getLastStackTrace : Log -> CCS .
+     eq getLastStackTrace(L:Log) = $getLastStackTrace (getStackTrace(L:Log)) .
+
+     op $getLastStackTrace : List{CCS} -> CCS .
+     eq $getLastStackTrace (init:List{CCS} nilccs) = $getLastStackTrace(init:List{CCS}) .
+     eq $getLastStackTrace (init:List{CCS} CCS) = CCS [owise] .
+
      op getStackTrace : Log -> List{CCS} .
      eq getStackTrace(STEP N E STACK: S HEAP: H CCS: CCS) = CCS .
      eq getStackTrace(FAIL Msg:String {CCS}) = CCS .

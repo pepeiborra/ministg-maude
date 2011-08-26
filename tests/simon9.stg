@@ -40,3 +40,5 @@ endm
 
 --- rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
 rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .
+rew in MINISTG-SIMON9-EVALUATION : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON9-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
