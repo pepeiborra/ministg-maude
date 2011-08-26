@@ -59,9 +59,14 @@ fmod MINISTG-CCS is  including MINISTG-SORTS .
 
      sorts Label CCS .
      subsort String < Label < CCS .
-  
+   
+     vars CCS CCS' : CCS .
+
      op _|_ : CCS CCS -> CCS [ctor assoc id: nilccs] .
      op nilccs : -> CCS [ctor] .
+     op _ or _ : CCS CCS -> CCS .
+     eq nilccs or CCS = CCS .
+     eq CCS or CCS' = CCS [owise] .
 
 ---     op _._ : Label Label -> Label [ctor assoc id: nilL format (d d d d) ] .
      op _._ : Label Label -> Label .

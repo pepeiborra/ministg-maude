@@ -13,13 +13,40 @@ eq pgm =
   'sumpap = THUNK('foldl 'plusInt 'zero);
   'list = THUNK('fromTo 'zero 'one);
 
-  'sum1 = THUNK( 'sumpap 'list) ;
+  'badSumError = THUNK( error "badsum" ) ;
+  'sum1 = THUNK( 'sumpap 'badSumError) ;
+  'sum2 = THUNK( 'sumpap 'list) ;
 
-  'badSumError = ERROR "badsum" ;
-  'sum2 = THUNK( 'sumpap 'badSumError) ;
-
-  'main = THUNK(let 'res = THUNK('plusInt 'sum1 'sum2) in 'seq 'sum1 'res)
+  'main = THUNK(let 'res = THUNK('plusInt 'sum1 'sum2) in 'seq 'res 'res)
   .
 endm
 
-rewrite eval(pgm) .
+
+mod MINISTG-SUMPAP2-EVALUATION is
+  including MINISTG-SUMPAP2 .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+mod MINISTG-SUMPAP2-EVALUATION-ARGS is
+  including MINISTG-SUMPAP2 .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+***( 
+Both these produce the stack trace {"badSumError"} which is not very helpful.
+We would want to see the caller !
+***)
+
+mod MINISTG-SUMPAP2-EVALUATION-TRACKTHUNKS is
+  including MINISTG-SUMPAP2 .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+endm
+
+***(
+Keeping the caller CCS when loading a thunk provides a much more informative stack trace:
+
+FAIL "badsum" {"main" | "seq" | "plusInt" | "sum1" | "foldl" | "badSumError"}
+***)
+
+--- rewrite in MINISTG-SUMPAP2-EVALUATION : eval(pgm) .
+--- rewrite in MINISTG-SUMPAP2-EVALUATION-ARGS : eval(pgm) .
+rewrite in MINISTG-SUMPAP2-EVALUATION-TRACKTHUNKS : eval(pgm) .

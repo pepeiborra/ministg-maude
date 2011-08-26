@@ -21,24 +21,26 @@ endm
 mod MINISTG-SIMON9-EVALUATION is
   including MINISTG-SIMON9 .
   protecting  MINISTG-RELATION-EVALUATION .
+*** Gives the stack: "main" | "main1" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
 endm
-
-***( The stack obtained is:
-     "main" | "main1" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
-***)
-
 
 
 mod MINISTG-SIMON9-EVALUATION-ARGS is
   including MINISTG-SIMON9 .
   protecting  MINISTG-RELATION-EVALUATION-ARGS .
+*** Gives the same stack as above 
 endm
 
-*** The stack obtained is the same as above.
-
-*** In none of these does "g" appear in the stack. Is this important ?
+mod MINISTG-SIMON9-EVALUATION-TRACKTHUNKS is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+*** Gives the same stack as above 
+endm
 
 --- rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
-rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .
+--- rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .
+rewrite in MINISTG-SIMON9-EVALUATION-TRACKTHUNKS : eval(pgm) .
+
 rew in MINISTG-SIMON9-EVALUATION : getLastStackTrace (eval(pgm)) .
 rew in MINISTG-SIMON9-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON9-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .

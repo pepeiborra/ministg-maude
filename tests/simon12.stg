@@ -33,9 +33,16 @@ mod MINISTG-SIMON12-EVALUATION-ARGS is
 endm
 
 
+mod MINISTG-SIMON12-EVALUATION-TRACKTHUNKS is
+  including MINISTG-SIMON12 .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+*** Gives the same stack as above 
+endm
+
 rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
 --- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
 
 
 rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
 rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .

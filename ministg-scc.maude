@@ -96,7 +96,8 @@ mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-COMMON .
                                              E
                      [STACK: (UPD {CCS} X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N  CCS: CCS'] .
 
-     crl [UPDATE1] : X
+     crl [UPDATE1-NORESTORE] : 
+                     X
                      STACK: (UPD {CCS'} Y) S
                      HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
                      COUNTER: N
@@ -109,7 +110,8 @@ mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-COMMON .
                       CCS: CCS ]                       if isValue(O) .
 
 
-     crl [UPDATE2] :  X
+     crl [UPDATE2-NORESTORE] : 
+                     X
                      STACK: (UPD {CCS'} Y) S
                      HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
                      COUNTER: N
@@ -129,10 +131,80 @@ mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-COMMON .
                     FunApp F' nothing (AA' AA)
                    [STACK: S  HEAP: H  COUNTER: N  CCS: CCS']         if H' ; F = PAP{CCS'} (F' AA') ; H'' := H .
 
-    crl [RETFUN] :                               F
+    crl [RETFUN-RESTORECCS] :  
+                                              F
                      STACK: (ARGS {CCS'} AA) S  HEAP: H  COUNTER: N CCS: CCS
                  => ----------------------------------------------------------
                                          FunApp F nothing AA 
                             [STACK: S  HEAP: H  COUNTER: N  CCS: CCS'] 
                                                            if H' ; F = O ; H'' := H /\ isFunOrPap O .
 endm
+
+--- Variation that does not reset the CCS when evaluating a thunk. Instead it appends the thunk CCS to the current one
+mod MINISTG-RELATION-EVALUATION-TRACKTHUNKS is including MINISTG-RELATION-COMMON .
+
+     vars K Ar : Nat .
+     vars N : Rat .
+     vars X Y F' F V V' : Var . 
+     vars XX VV : AtomList .
+     var B : Binding .
+     var BB : Heap . 
+     var S : Stack . 
+     vars H H' H'' : Heap .
+     vars Z E : Exp .
+     var C : Constructor .
+     var A : Atom .
+     var O : Obj .
+     vars AA AA' Rest : AtomList . 
+     vars AA1 AA2 : AltGroup .
+     vars CCS CCS' : CCS .
+     var CC : Label .
+                                            
+
+     rl [THUNK-TRACKCCS] :                            X 
+                       STACK: S  HEAP: H ; X = THUNK{CCS'} (E)  ; H'  COUNTER: N  CCS: CCS
+                =>   -------------------------------------------------------------------------
+                                             E
+                     [STACK: (UPD {CCS} X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N  CCS: CCS or CCS'] .
+
+     crl [UPDATE1] : X
+                     STACK: (UPD {CCS'} Y) S
+                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
+                     COUNTER: N
+                     CCS: CCS
+                 => ---------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; X = O ; H' ; Y = O ; H''
+                      COUNTER: N
+                      CCS: CCS' ]                       if isValue(O) .
+
+
+     crl [UPDATE2] :  X
+                     STACK: (UPD {CCS'} Y) S
+                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
+                     COUNTER: N
+                     CCS: CCS
+                 => -------------------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; Y = O ; H' ; X = O ; H''
+                      COUNTER: N
+                      CCS: CCS']                            if isValue(O) .
+
+ *** Eval/Apply rules
+
+    crl [PCALL] :    FunApp F K:Maybe{Nat} AA
+                   STACK: S  HEAP: H  COUNTER: N CCS: CCS
+               => ------------------------------------------
+                    FunApp F' nothing (AA' AA)
+                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS or CCS']         if H' ; F = PAP{CCS'}(F' AA') ; H'' := H .
+
+    crl [RETFUN] :                               F
+                     STACK: (ARGS {CCS'} AA) S  HEAP: H  COUNTER: N CCS: CCS
+                 => ----------------------------------------------------------
+                                         FunApp F nothing AA 
+                            [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] 
+                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+endm
+
