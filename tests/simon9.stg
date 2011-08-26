@@ -1,0 +1,42 @@
+
+load "prelude.stg" .
+
+mod MINISTG-SIMON9 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'c = CON (I 21);
+  'g = THUNK( scc "g" let 
+                     { 'j = FUN('x -> 'dblInt 'x ) ;
+                       'res = FUN('h -> 'h 'j) }
+                     in 'res ); 
+  'main = THUNK (stack "main" 
+       let { 'h = FUN ('f -> 'f 'c) ;
+             'res = FUN('x1 -> scc "main1" 'g 'h)
+	   } in 'res 'unit)
+  .
+endm
+
+mod MINISTG-SIMON9-EVALUATION is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+***( The stack obtained is:
+     "main" | "main1" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
+***)
+
+
+
+mod MINISTG-SIMON9-EVALUATION-ARGS is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+*** The stack obtained is the same as above.
+
+*** In none of these does "g" appear in the stack. Is this important ?
+
+--- rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
+rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .

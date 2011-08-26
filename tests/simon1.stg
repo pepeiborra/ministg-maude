@@ -1,7 +1,7 @@
 
 load "prelude.stg" .
 
-mod MINISTG-SIMON2 is including MINISTG-PRELUDE .
+mod MINISTG-SIMON1 is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =

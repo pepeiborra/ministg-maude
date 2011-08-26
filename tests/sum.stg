@@ -14,4 +14,16 @@ eq sum =
 
 endm
 
-rewrite  eval(sum) .
+mod MINISTG-SUM-EVALUATION is
+  including MINISTG-SUM .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+
+mod MINISTG-SUM-EVALUATION-ARGS is
+  including MINISTG-SUM .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+--- rewrite in MINISTG-SUM-EVALUATION : eval(sum) .
+rewrite in MINISTG-SUM-EVALUATION-ARGS : eval(sum) .

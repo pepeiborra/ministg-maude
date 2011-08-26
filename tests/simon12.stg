@@ -1,0 +1,36 @@
+
+load "prelude.stg" .
+
+mod MINISTG-SIMON9 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'c = CON (I 21);
+  'constr = FUN('x 'f -> 'f 'x) ;
+  'deconstr = FUN('p -> let 'f = FUN('x -> 'x) in 'p 'f) ;
+  'g = THUNK( scc "g" let 
+                     { 'j = FUN('x -> 'dblInt 'x ) ;
+                       'p = THUNK('constr 'j) ;
+                       'res = FUN('h -> scc "g1" let 'p1 = THUNK('p) in 'h 'p1) }
+                     in 'res ) ; 
+  'main = THUNK (stack "main" 
+       let { 'h = FUN ('p -> 'deconstr 'p 'c) ;
+             'res = FUN('x -> scc "main1" 'g 'h) 
+           } in 'res 'unit)
+  .
+endm
+
+mod MINISTG-SIMON9-EVALUATION is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+
+mod MINISTG-SIMON9-EVALUATION-ARGS is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
+--- rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .

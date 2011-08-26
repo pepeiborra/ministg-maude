@@ -1,6 +1,8 @@
-load "../ministg.maude" .
+load "../ministg-scc.maude" .
 
-mod MINISTG-PRELUDE is including MINISTG-RELATION .
+mod MINISTG-PRELUDE is 
+
+pr MINISTG-RELATION-COMMON .
 
 op I     : -> Constructor [ctor] .
 op Nil   : -> Constructor [ctor] .
@@ -178,14 +180,5 @@ eq Prelude =
 endm 
 
 
---- set trace on .
-set trace eq off .
-set trace condition off .
-set trace rewrite on .
-set trace whole off .
-set trace mb off .
-set trace body off .
-set trace substitution off .
-set trace builtin off .
 
 set print format on .
