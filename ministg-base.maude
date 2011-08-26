@@ -291,7 +291,7 @@ fmod MINISTG-ANNOTATE is
      op  annotateDeep _ _ : Label Binding -> Binding .
      eq  annotateDeep SS (V     = THUNK{CCS'} (stack CC E)) = V = THUNK{CCS'} (stack CC (annotateDeep (CC . SS) E)) .
      ceq annotateDeep nilL (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
-     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS = nilL [owise] . 
+     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilL [owise] . 
      eq  annotateDeep SS (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC annotateDeep (CC . SS) E) .
      ceq annotateDeep SS (V:Qid = FUN (AA -> E))     = V:Qid = FUN (AA -> stack SS' annotateDeep SS' E) if SS' := SS . string(V:Qid) [owise] .
      eq  annotateDeep SS (V     = CON(C AA))         = V = CON(C AA) .
