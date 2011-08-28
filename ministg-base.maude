@@ -63,17 +63,15 @@ fmod MINISTG-CCS is  including MINISTG-SORTS .
      vars CCS CCS' : CCS .
 
      op _|_ : CCS CCS -> CCS [ctor assoc id: nilccs] .
-     op nilccs : -> CCS [ctor] .
+     op nilccs : -> Label [ctor] .
      op _ or _ : CCS CCS -> CCS .
      eq nilccs or CCS = CCS .
      eq CCS or CCS' = CCS [owise] .
 
----     op _._ : Label Label -> Label [ctor assoc id: nilL format (d d d d) ] .
      op _._ : Label Label -> Label .
      eq L1:String . L2:String = L1:String + "." + L2:String .
-     eq nilL . L1:String = L1:String .
-     eq L1:String . nilL = L1:String .
-     op nilL : -> Label [ctor] .
+     eq nilccs . L1:String = L1:String .
+     eq L1:String . nilccs = L1:String .
 
      op stack _ _ : Label Exp -> Exp [ctor prec 42 gather (E e)  format (c r o d) ] .
      op scc _ _ : Label Exp -> Exp [prec 42 gather (E e) ] .
@@ -288,12 +286,12 @@ fmod MINISTG-ANNOTATE is
      *** annotate a program without overwriting user annotations
      op annotateDeep _ : Heap -> Heap .
      eq annotateDeep (nil).Heap = nil .
-     eq annotateDeep (B ; H) = annotateDeep nilL B ; annotateDeep H [owise] .
+     eq annotateDeep (B ; H) = annotateDeep nilccs B ; annotateDeep H [owise] .
 
      op  annotateDeep _ _ : Label Binding -> Binding .
      eq  annotateDeep SS (V     = THUNK{CCS'} (stack CC E)) = V = THUNK{CCS'} (stack CC (annotateDeep (CC . SS) E)) .
-     ceq annotateDeep nilL (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
-     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilL [owise] . 
+     ceq annotateDeep nilccs (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
+     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilccs [owise] . 
      eq  annotateDeep SS (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC annotateDeep (CC . SS) E) .
      ceq annotateDeep SS (V:Qid = FUN (AA -> E))     = V:Qid = FUN (AA -> stack SS' annotateDeep SS' E) if SS' := SS . string(V:Qid) [owise] .
      eq  annotateDeep SS (V     = CON(C AA))         = V = CON(C AA) .
