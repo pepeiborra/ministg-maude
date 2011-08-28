@@ -1,0 +1,70 @@
+
+load "prelude.stg" .
+
+mod MINISTG-SIMON12 is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+eq pgm =
+  Prelude ;
+  'c = CON (I 21);
+  'constr = FUN('x 'f -> 'f 'x) ;
+  'deconstr = FUN('p -> let 'f = FUN('x -> 'x) in 'p 'f) ;
+  'e = THUNK( stack "g.j" error "unhandled exception") ;
+  'g = THUNK( let 
+               { 'j = FUN('x -> stack nilccs 'e ) ;
+                 'p = THUNK('constr 'j) ;
+                 'res = FUN('h -> let 'p1 = THUNK('p) in 'h 'p1) }
+                in 'res ) ; 
+  'main = THUNK (
+       let { 'h = FUN ('p -> 'deconstr 'p 'c) ;
+             'res = FUN('x -> 'g 'h) 
+           } in 'res 'unit)
+  .
+endm
+
+mod MINISTG-SIMON12-EVALUATION is
+  including MINISTG-SIMON12 .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+
+mod MINISTG-SIMON12-EVALUATION-ARGS is
+  including MINISTG-SIMON12 .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+
+mod MINISTG-SIMON12-EVALUATION-TRACKTHUNKS is
+  including MINISTG-SIMON12 .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+*** Gives the same stack as above 
+endm
+
+rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
+--- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
+
+rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+
+***(
+rewrite in MINISTG-SIMON12-EVALUATION : getLastStackTrace(eval pgm) .
+result String: "g.j"
+==========================================
+rewrite in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace(eval pgm) .
+result String: "g.j"
+==========================================
+rewrite in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace(eval pgm) .
+result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+
+- In all the cases, the program is annotated with -auto-all-deep
+- The stack traces shown above correspond to the CCS immediately before returning to main
+- The EVALUATION variant uses evaluation scoping, and restores the CCS after an UPD frame is reduced
+- The EVALUATION-ARGS variant uses evaluation scoping, and restores the CCS after an ARGS frame is reduced
+- The TRACKTHUNKS variant uses evaluation scoping with restore on UPD frames, but appends instead of overwriting the current CCS in the THUNK rule
+
+- Calls to error in GHC are often floated to the top level as CAFs. In practice these would be implicitly tagged with the "CAF" cost center. However if we use -auto-all-deep, these will be tagged correctly.
+- This example simulates the second scenario described above. The call to error is inside a top level thunk, but we annotate it with the CC corresponding to the caller site.
+- The eager stack trace for this example would be: 
+                "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+***)
