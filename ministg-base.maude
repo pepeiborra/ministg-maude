@@ -49,7 +49,7 @@ fmod MINISTG-SORTS is
      op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
      op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
 
-     op error _ : String -> Exp [ctor format (!b r o)] .
+     op error _ : String -> Exp [ctor format (!b or o)] .
 
 endfm
 
@@ -136,6 +136,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
      op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
      op BLACKHOLE : -> Obj [ctor format (c o)] .
+     op ERROR _ : String -> Obj [ctor format (c b o) ] .
 
      op isValue _ : Obj -> Bool .
      eq isValue(THUNK{CCS} (E)) = false .
@@ -161,6 +162,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq vars CON(C AA) = vars AA .
      eq vars FUN(AA -> E) = vars E \ vars AA .
      eq vars BLACKHOLE = empty .
+     eq vars ERROR Msg:String = empty .
 
      op vars _ : Exp -> AtomSet .
      eq vars(stack CC E) = vars E .
@@ -218,6 +220,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq CON(C AA) [AB] = CON(C (AA [AB])) [owise] .
      eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
+     eq ERROR msg:String [AB] = ERROR msg:String .
 
      op _ [_] : Heap AtomBinding -> Heap .
      eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
@@ -596,31 +599,18 @@ mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
                    [STACK: S  HEAP: H  COUNTER: N  CCS: CCS | CC] .
 
 
-    rl [ERROR] :     error msg:String
-                     STACK: S  
-                     HEAP: H
-                     COUNTER: N
-                     CCS: CCS
-                => ----------y-----------------------------
-                     Fail msg:String {CCS} .
-
-     rl [ERROR-LET] :       let BB in error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
-                 => -------------------------------------------
-                                 error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
-
-     rl [ERROR-CASE] :    case error msg:String of { Alts }
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
-                 => -------------------------------------------
-                                 error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
+     crl [ERROR-EXP] :                     error msg:String
+                               STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                 => ------------------------------------------------------------------
+                                                     E
+                     [STACK: S  HEAP: E = ERROR msg:String ; H  COUNTER: N  CCS: CCS]
+                                                                   if E := qid ("e" + string(N, 10)) .
 
      crl [DONE] :                    V
                       STACK: nil HEAP: H COUNTER: N CCS: CCS
-              => ---------------------------------------
-                         Done O (gc(vars O, H))         if H' ; V = O ; H'' := H 
-                                                          /\ V =/= 'main .
+              =>     ---------------------------------------
+                             Done O (gc(vars O, H))         if H' ; V = O ; H'' := H 
+                                                            /\ V =/= 'main .
 
      rl [PRIMOP-PLUS] :        plus# A1:Int A2:Int
                           STACK: S  HEAP: H  COUNTER: N  CCS: CCS
