@@ -147,7 +147,7 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq isFunOrPap PAP{CCS} (F AA) = true .
      eq isFunOrPap O = false [owise] .
 
-     op UPD{_} _ : CCS Var -> Continuation [ctor format (d r d d o d) ] .
+     op UPD{_} _ : CCS Var -> Continuation [ctor format (d r d d so d) ] .
      op CASE OF _ : AltGroup -> Continuation [ctor format (d d n d)] .
      op ARGS{_} _ : CCS AtomList -> Continuation [ctor format (d r d d o d)] .
 
