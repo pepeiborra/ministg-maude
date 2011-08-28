@@ -9,14 +9,14 @@ eq pgm =
   'c = CON (I 21);
   'constr = FUN('x 'f -> 'f 'x) ;
   'deconstr = FUN('p -> let 'f = FUN('x -> 'x) in 'p 'f) ;
-  'g = THUNK( scc "g" let 
-                     { 'j = FUN('x -> 'dblInt 'x ) ;
-                       'p = THUNK('constr 'j) ;
-                       'res = FUN('h -> scc "g1" let 'p1 = THUNK('p) in 'h 'p1) }
-                     in 'res ) ; 
-  'main = THUNK (stack "main" 
+  'g = THUNK( let 
+               { 'j = FUN('x -> 'dblInt 'x ) ;
+                 'p = THUNK('constr 'j) ;
+                 'res = FUN('h -> let 'p1 = THUNK('p) in 'h 'p1) }
+                in 'res ) ; 
+  'main = THUNK (
        let { 'h = FUN ('p -> 'deconstr 'p 'c) ;
-             'res = FUN('x -> scc "main1" 'g 'h) 
+             'res = FUN('x -> 'g 'h) 
            } in 'res 'unit)
   .
 endm
@@ -42,7 +42,40 @@ endm
 rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
 --- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
 
-
 rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
+***(
+    rewrite in MINISTG-SIMON12-EVALUATION : getLastStackTrace(eval pgm) .
+    result CCS: "g" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt" 
+***)
+
 rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
+***(
+    rewrite in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace(eval pgm) .
+    result CCS: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
+***)
+
 rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+***(
+    rewrite in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace(eval pgm) .
+    result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+***)
+
+***(
+- In all the cases, the program is annotated with -auto-all-deep
+- The stack traces shown above correspond to the CCS immediately before returning to main
+- The EVALUATION variant uses evaluation scoping, and restores the CCS after an UPD frame is reduced
+- The EVALUATION-ARGS variant uses evaluation scoping, and restores the CCS after an ARGS frame is reduced
+- The TRACKTHUNKS variant uses evaluation scoping with restore on UPD frames, but appends instead of overwriting the current CCS in the THUNK rule
+- The eager stack trace for this example would be: 
+                "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+
+- The most accurate stack trace w.r.t. to the eager stack trace is the one produced by the TRACKTHUNKS variant. We only lose the frame corresponding to the evaluation of the thunk "g", but that's probably unavoidable.
+
+- We can (almost) extract the other two stack traces from the TRACKTHUNKKS one.
+
+   - The Evaluation one:        "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+                                                    \________/                        \_____________________________________________________/
+
+   - The Evaluation-args one:   "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+                                \_______________________________________/                                       \___________________________/
+***)

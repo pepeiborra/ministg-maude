@@ -7,9 +7,8 @@ op pgm : -> Heap .
 eq pgm =
   Prelude ;
   'c = CON (I 21);
-  'main = THUNK (stack "main" 
-       let 'g = FUN ('x -> 'dblInt 'x) in
-       stack "main2" 'g 'c)
+  'main = THUNK (
+       let 'g = FUN ('x -> 'dblInt 'x) in 'g 'c)
   .
 endm
 
@@ -18,18 +17,10 @@ mod MINISTG-SIMON1-EVALUATION is
   protecting  MINISTG-RELATION-EVALUATION .
 endm
 
-***( The stack obtained is:
-     "main" | "main1" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
-***)
-
 mod MINISTG-SIMON1-EVALUATION-ARGS is
   including MINISTG-SIMON1 .
   protecting  MINISTG-RELATION-EVALUATION-ARGS .
 endm
-
-*** The stack obtained is the same as above.
-
-*** In none of these does "g" appear in the stack. Is this important ?
 
 mod MINISTG-SIMON1-EVALUATION-TRACKTHUNKS is
   including MINISTG-SIMON1 .
@@ -41,6 +32,19 @@ endm
 rewrite in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : eval(pgm) .
 
 
-rew in MINISTG-SIMON1-EVALUATION : getLastStackTrace (eval(pgm)) .
-rew in MINISTG-SIMON1-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
-rew in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON1-EVALUATION : getLastStackTrace (eval(pgm)) . *** Gives the stack: "main" | "main.g" | "dblInt" | "plusInt"
+rew in MINISTG-SIMON1-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) . *** Same stack as above
+rew in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . *** Same stack as above
+
+
+
+***(
+- In all the cases, the program is annotated with -auto-all-deep
+- The stack traces shown above correspond to the CCS immediately before returning to main
+- The EVALUATION variant uses evaluation scoping, and restores the CCS after an UPD frame is reduced
+- The EVALUATION-ARGS variant uses evaluation scoping, and restores the CCS after an ARGS frame is reduced
+- The TRACKTHUNKS variant uses evaluation scoping with restore on UPD frames, but appends instead of overwriting the current CCS in the THUNK rule
+- The eager stack trace for this example would be: "main" | "main.g" | "dblInt" | "plusInt" which is exactly what we obtain
+
+***)
+
