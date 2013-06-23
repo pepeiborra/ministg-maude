@@ -67,4 +67,6 @@ result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "
 - This example simulates the second scenario described above. The call to error is inside a top level thunk, but we annotate it with the CC corresponding to the caller site.
 - The eager stack trace for this example would be: 
                 "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+
+- Only the TRACKTHUNKS strategy manages to approximate the eager trace. The other two strategies cannot return it because they will reset the current CCS when entering the error thunk.
 ***)

@@ -1,0 +1,54 @@
+
+load model-checker.maude
+
+*** This module contains predicates over configurations
+mod MINISTG-PREDS is
+  pr MINISTG-PROGRAM .
+  including SATISFACTION .
+
+  subsort Configuration < State .
+  
+  var E : Exp .
+  var H : Heap .
+  var O : Obj .
+  var S : Stack .
+  var N : Nat .
+  var C : CCS .
+  vars L L' : Label .
+  var V : Var .
+  var Opts : Options .
+
+  op init _ : Heap -> Configuration .
+  eq init H = 'main STACK: nil HEAP: arity(mkArityMap(H), annotateDeep(gc('main,H))) COUNTER: 0 CCS: nilccs .
+
+  op contains _ : Label -> Prop .
+  op startsWith _ : Label -> Prop .
+  op isEmpty : -> Prop . 
+
+  eq (E STACK: S HEAP: H COUNTER: N CCS: C) |= contains L = C contains L .
+  eq (E STACK: S HEAP: H COUNTER: N CCS: C) |= startsWith L = C startsWith L .
+  eq (E STACK: S HEAP: H COUNTER: N CCS: nilccs) |= isEmpty = true .
+  eq Done O H |= Any:Prop = true .
+  eq S:State |= Other:Prop = false [owise] .
+
+  op _ contains _ : CCS Label -> Bool .
+  eq nilccs contains L = false .
+  eq L | C contains L' = L == L' or C contains L' [owise] .
+
+  op _ startsWith _ : CCS Label -> Bool .
+  eq nilccs startsWith L = true .
+  eq L:String | C startsWith L':String = L:String == L':String [owise] .
+
+  rl [STEP] :   E [STACK: S  HEAP: H  COUNTER: N  CCS: C]
+           => ---------------------------------------------
+                E  STACK: S  HEAP: H  COUNTER: N  CCS: C .
+
+  rl [CLOSE] : Done O H => Done O H .
+endm
+
+mod MINISTG-CHECK is
+  pr MINISTG-PREDS .
+  including MODEL-CHECKER .
+  including LTL-SIMPLIFIER .
+endm
+

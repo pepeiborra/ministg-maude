@@ -38,7 +38,7 @@ fmod MINISTG-SORTS is
      op _ = _ : Var Obj -> Binding [ctor prec 39 format (d b o d)] .
      op _;_ : Heap Heap -> Heap [ctor assoc prec 42 id: nil format (d m! no d)] .
      op _;_ : NeHeap Heap -> NeHeap [ctor ditto] .
-     op nil : -> Heap .
+     op nil : -> Heap [ctor] .
      op __ : Stack Stack -> Stack [ctor assoc id: nil format (d n d) ] .
      op nil : -> Stack [ctor] .
 
@@ -53,40 +53,12 @@ fmod MINISTG-SORTS is
 
 endfm
 
-fmod MINISTG-CCS is  including MINISTG-SORTS .
-
-     protecting STRING .
-
-     sorts Label CCS .
-     subsort String < Label < CCS .
-   
-     vars CCS CCS' : CCS .
-
-     op _|_ : CCS CCS -> CCS [ctor assoc id: nilccs] .
-     op nilccs : -> Label [ctor] .
-     op _ or _ : CCS CCS -> CCS .
-     eq nilccs or CCS = CCS .
-     eq CCS or CCS' = CCS [owise] .
-
-     op _._ : Label Label -> Label .
-     eq L1:String . L2:String = L1:String + "." + L2:String .
-     eq nilccs . L1:String = L1:String .
-     eq L1:String . nilccs = L1:String .
-
-     op stack _ _ : Label Exp -> Exp [ctor prec 42 gather (E e)  format (c r o d) ] .
-     op scc _ _ : Label Exp -> Exp [prec 42 gather (E e) ] .
-     eq scc L:Label E:Exp = stack L:Label E:Exp .
-
-endfm
-
 view Var from TRIV to MINISTG-SORTS is sort Elt to Var . endv
 view Atom from TRIV to MINISTG-SORTS is sort Elt to Atom . endv
 view AtomBinding from TRIV to MINISTG-SORTS is sort Elt to AtomBinding . endv
-view CCS from TRIV to MINISTG-CCS is sort Elt to CCS . endv
 
-fmod MINISTG-SYNTAX is including MINISTG-CCS .
+fmod MINISTG-SYNTAX is including MINISTG-SORTS .
 
-     protecting MINISTG-CCS .
      protecting LIST-AND-SET{Atom} * (sort List{Atom} to AtomList, sort NeList{Atom} to NeAtomList, sort Set{Atom} to AtomSet) .
      protecting SET{AtomBinding} * (sort Set{AtomBinding} to Substitution, sort NeSet{AtomBinding} to NeSubstitution) .
 
@@ -103,11 +75,9 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      var O : Obj .
      var C : Constructor .
      vars A A' : Atom .
-     vars ALT AA1 AA2 : AltGroup .
+     vars Alts ALT AA1 AA2 : AltGroup .
      var SUBST : Substitution .
      var AB : AtomBinding .
-     var CC : Label .
-     vars CCS CCS' : CCS .
      var Ar : Maybe{Nat} .
     
      mb C AA:NeAtomList : ConstructorExp .
@@ -125,43 +95,11 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      op gte# : -> PrimOp [ctor format (c o)] .
      op intToBool# : -> PrimOp [ctor format (c o)] .
 
-     op THUNK{_} (_) : CCS Exp -> Obj [ctor format (c r d d c o c o) ] .
-     op THUNK _ : Exp -> Obj .
-     eq THUNK E = THUNK{nilccs} (E) .
-     op PAP{_} (_ _) : CCS Var AtomList -> Obj [ctor format (c r d d c o d c o)] .
-     op PAP (_ _) : Var AtomList -> Obj .
-     eq PAP(V AA) = PAP{nilccs} (V AA) .
-     op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
-     op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
-     op BLACKHOLE : -> Obj [ctor format (c o)] .
-
-     op isValue _ : Obj -> Bool .
-     eq isValue(THUNK{CCS} (E)) = false .
-     eq isValue(BLACKHOLE) = false .
-     eq isValue O = true [owise] .
-
-     op isFunOrPap _ : Obj -> Bool .
-     eq isFunOrPap FUN(VV -> E) = true .
-     eq isFunOrPap PAP{CCS} (F AA) = true .
-     eq isFunOrPap O = false [owise] .
-
-     op UPD{_} _ : CCS Var -> Continuation [ctor format (d r d d so d) ] .
-     op CASE OF _ : AltGroup -> Continuation [ctor format (d d n d)] .
-     op ARGS{_} _ : CCS AtomList -> Continuation [ctor format (d r d d o d)] .
-
      *** **************
      *** Free Variables
      *** **************
-     
-     op vars _ : Obj -> AtomSet .
-     eq vars(THUNK{CCS} (E)) = vars E .
-     eq vars PAP{CCS} (F AA) = F, vars AA .
-     eq vars CON(C AA) = vars AA .
-     eq vars FUN(AA -> E) = vars E \ vars AA .
-     eq vars BLACKHOLE = empty .
 
      op vars _ : Exp -> AtomSet .
-     eq vars(stack CC E) = vars E .
      eq vars(case E of { ALT }) = vars ALT, vars E .
      eq vars(let V = O in E) = vars O, vars E \ V .
      eq vars(FunApp F Ar AA) = F, vars AA .
@@ -185,9 +123,8 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq vars(C:Continuation S) = vars C:Continuation, vars S [owise] .
 
      op vars _ : Continuation -> AtomSet .
-     eq vars (ARGS{CCS} AA) = vars AA .
-     eq vars (UPD{CCS} V) = V .
-     eq vars (CASE OF ALT) = vars ALT .
+     op vars _ : Obj -> AtomSet . 
+     --- equations provided in a later module  
 
      *** **************
      *** Substitutions 
@@ -208,14 +145,9 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      eq SUBST \\ V = SUBST [owise] .
      eq SUBST \\ (V VV) = (SUBST \\ V) \\ VV [owise] .
 
-     *** implementation
+     *** substitution rules
      op _ [_] : Obj AtomBinding -> Obj .     
-     eq THUNK{CCS} (E) [AB] = THUNK{CCS} (E [AB]) .
-     eq PAP{CCS} (V AA) [AB] = PAP{CCS} ((V[AB]) (AA [AB])) .
-     eq CON(C) [AB] = CON(C) .
-     eq CON(C AA) [AB] = CON(C (AA [AB])) [owise] .
-     eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
-     eq BLACKHOLE [AB] = BLACKHOLE .
+     --- equations provided in a later module  
 
      op _ [_] : Heap AtomBinding -> Heap .
      eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
@@ -236,158 +168,38 @@ fmod MINISTG-SYNTAX is including MINISTG-CCS .
      ceq [subst-exp-let] : (let V = O in E) [X :-> A] = let V = O [X :-> A] in (E [X :-> A]) if V =/= X .
      *** eq (let B in E) [AB] = let B in E [owise] .
      eq [subst-exp-funapp] : (FunApp F Ar AA) [AB] = FunApp (F [AB]) Ar (AA [AB]) .
-     eq [subst-exp-stack] : (stack CC E) [AB] = stack CC (E [AB]) .
      eq [subst-exp-prim]  : (OP:PrimOp AA) [AB] = OP:PrimOp AA .
      eq [subst-exp-var] : V [V :-> A] = A .
      eq [subst-exp-var2] : V [AB] = V [owise] .
      eq [subst-exp-lit]  : X:Lit [AB] = X:Lit .
      eq [subst-exp-error] : error msg:String [AB] = error msg:String .
 
-     op _ STACK: _ HEAP: _ COUNTER: _ CCS: _  : Exp Stack Heap Nat CCS -> Configuration [ctor prec 80 format (nn nm on++++ nm---- on++++ nm---- os nm r o)] . 
-endfm
-
-fmod MINISTG-ANNOTATE is
-     pr MINISTG-SYNTAX .
-     pr QID .
-
-     var B : Binding .
-     var H : Heap .
-     var A : Atom .
-     vars V V' : Var .
-     var O : Obj .
-     var E : Exp .
-     var C : Constructor .
-     var AA : AtomList .
-     var CC : Label .
-     vars CCS CCS' : CCS .
-     var Alts : AltGroup .
-
-     *** overwrite an existing CCS in a THUNK or PAP
-     op _ <- {_} : Obj CCS -> Obj [prec 38] .
-     eq (THUNK{CCS} (E)) <- {CCS'} = THUNK{CCS'} (E) .
-     eq PAP{CCS} (E AA) <- {CCS'} = PAP{CCS'} (E AA) .
-     eq O <- {CCS} = O [owise] .
-
-
-     *** annotate a program without overwriting user annotations
-     op annotate _ : Heap -> Heap .
-     eq annotate (nil).Heap = nil .
-     eq annotate (B ; H) = annotate B ; annotate H [owise] .
-
-     op annotate _ : Binding -> Binding .
-     eq annotate (V     = THUNK{CCS} (stack CC E)) = V = THUNK{CCS} (stack CC E) .
-     eq annotate (V:Qid = THUNK {CCS} (E)) = V:Qid = THUNK{CCS} (stack string(V:Qid) E) [owise] .
-     eq annotate (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC E) .
-     eq annotate (V:Qid = FUN (AA -> E)) = V:Qid = FUN (AA -> stack string(V:Qid) E) [owise] .
-     eq annotate (V = CON(C AA)) = V = CON(C AA) .
-     eq annotate (V = PAP{CCS} (V' AA)) = V = PAP{CCS} (V' AA) .
-
-     vars SS SS' : Label .
-     *** annotate a program without overwriting user annotations
-     op annotateDeep _ : Heap -> Heap .
-     eq annotateDeep (nil).Heap = nil .
-     eq annotateDeep (B ; H) = annotateDeep nilccs B ; annotateDeep H [owise] .
-
-     op  annotateDeep _ _ : Label Binding -> Binding .
-     eq  annotateDeep SS (V     = THUNK{CCS'} (stack CC E)) = V = THUNK{CCS'} (stack CC (annotateDeep (CC . SS) E)) .
-     ceq annotateDeep nilccs (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
-     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilccs [owise] . 
-     eq  annotateDeep SS (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC annotateDeep (CC . SS) E) .
-     ceq annotateDeep SS (V:Qid = FUN (AA -> E))     = V:Qid = FUN (AA -> stack SS' annotateDeep SS' E) if SS' := SS . string(V:Qid) [owise] .
-     eq  annotateDeep SS (V     = CON(C AA))         = V = CON(C AA) .
-     eq  annotateDeep SS (V     = PAP{CCS'} (V' AA)) = V = PAP{CCS'} (V' AA) .
-     
-     op annotateDeep _ _ : Label Exp -> Exp .
-     eq annotateDeep SS (let B in E) = let annotateDeep SS B in annotateDeep SS E .
-     eq annotateDeep SS (case E of { Alts }) = case annotateDeep SS E of { annotateDeep SS Alts } .
-     eq annotateDeep SS (stack CC E) = stack CC (annotateDeep SS E) .
-     eq annotateDeep SS A:Atom = A:Atom .
-     eq annotateDeep SS (A:Atom AA:AtomList) = (annotateDeep SS A:Atom) (annotateDeep SS AA:AtomList) [owise] .
-     eq annotateDeep SS (P:PrimOp AA:AtomList) = P:PrimOp (annotateDeep SS AA) .
-     eq annotateDeep SS (error msg:String) = error msg:String .
-
-     op annotateDeep _ _ : Label AltGroup -> AltGroup .
-     eq annotateDeep SS (nil).AltGroup = nil .
-     eq annotateDeep SS (V -> E ; Alts) = V -> annotateDeep SS E ; annotateDeep SS Alts .
-     eq annotateDeep SS (C AA -> E ; Alts) = C AA -> annotateDeep SS E ; annotateDeep SS Alts [owise] .
-
-endfm
-
-fmod MINISTG-PROGRAM is
-     protecting MINISTG-ANNOTATE .
-     protecting MAP{Var, Nat} * (sort Map{Var,Nat} to ArityMap) .
-
-     sorts Program Log Options .
-     
-     vars B D : Binding .
-     vars H H' H'' BB DD DD' : Heap .
-     var O : Obj .
-     var M : ArityMap .
-     var N : Nat .
-     vars V F : Var .
-     var VV : AtomList .
-     vars E Z : Exp .
-     vars AA EE : AtomList .
-     var Alts : AltGroup .
-     var Atoms : AtomList .
-     var C : Constructor .
-     var S : Stack .
-     var CC : Label .
-     var CCS : CCS .
-     vars NEXT SEEN : AtomSet .
-     var Opts : Options .
-
-     *** Heap Analysis.
-     op gc : AtomSet Heap -> Heap .
-     eq gc(AA:AtomSet, H) = restrict (reachable(AA:AtomSet,H), H) .
-
-     --- restrict takes a set of vars V and a heap and returns a subheap containing only bindings for elements of V
-     op restrict : AtomSet Heap -> Heap .
-     eq restrict(empty, H) = nil .
-     eq restrict((V, V, VV:AtomSet), H) = restrict(VV:AtomSet, H) .
-     eq restrict((V, VV:AtomSet), (H ; V = O ; H')) = V = O ; restrict(VV:AtomSet, H ; H') .
-     eq restrict((V, VV:AtomSet), H) = restrict(VV:AtomSet, H) [owise] . *** this is probably a bug
-     eq restrict((V, VV:AtomSet), H) = restrict(VV:AtomSet, H) [owise] .
-
-     *** reachble takes a set of root pointers and returns the transitive closure of reachable pointers
-     op reachable : AtomSet Heap -> AtomSet .
-     eq reachable (VV:AtomSet, H) = $reachable(VV:AtomSet, empty, H) .
- 
-     op $reachable : AtomSet AtomSet Heap -> AtomSet .
-     eq $reachable(empty, SEEN, H) = SEEN .
-     eq $reachable((V,NEXT), (V,SEEN), H) = $reachable( NEXT, (V,SEEN), H) .
-     eq $reachable((V, V, NEXT), SEEN, H) = $reachable( (V,NEXT), SEEN, H) .
-     ceq $reachable((V, NEXT), SEEN, H) = $reachable( (vars O, NEXT), (V, SEEN), H )
-                                           if H' ; V = O ; H'' := H .
-     
 
      *** Arity Analysis, done in two steps
      *** 1. mkArityMap collects a table with the arities of declared (top level) functions
      ***    TODO: extend to handle inner functions
+
+     protecting MAP{Var, Nat} * (sort Map{Var,Nat} to ArityMap) .
+
+     var M : ArityMap .
+     
      op mkArityMap _ : Heap -> ArityMap .
-     eq mkArityMap (V = FUN(VV -> Z) ;  DD) = insert(V, size(VV), mkArityMap DD) .
-     eq mkArityMap (D ; DD ) = mkArityMap DD [owise] .
+     eq mkArityMap (B ; H ) = mkArityMap H [owise] .
      eq mkArityMap nil = empty .
 
      *** 2. arity transforms the expression replacing adjacent terms by function applications, annotated by arity when known.
+     op arity : ArityMap Obj -> Obj .
+     --- equations provided in a later module  
 
      op arity : ArityMap Heap -> Heap .
      eq arity(M, (V = O ; BB)) = V = arity(M,O) ; arity(M,BB) .
      eq arity(M, (nil).Heap) = nil .
 
-     op arity : ArityMap Obj -> Obj .
-     eq arity(M, THUNK{CCS} (E)) = THUNK{CCS} (arity(M, E)) .
-     eq arity(M, CON(C Atoms)) = CON(C Atoms) .
-     eq arity(M, BLACKHOLE) = BLACKHOLE .
-     eq arity(M, PAP{CCS} (V Atoms)) = PAP{CCS}(V Atoms) .
-     eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
-
      op arity : ArityMap Exp -> Exp .
      eq arity(M, let B in E) = let arity(M, B) in arity(M, E) .
      eq arity(M, case E of { Alts }) = case arity(M, E) of { arity(M, Alts) } .
-     eq arity(M, stack CC E) = stack CC (arity(M, E)) .
-     eq arity(M, OP:PrimOp Atoms) = OP:PrimOp Atoms .
-     eq arity((M, F |-> N), F EE) = FunApp F N EE .
+     eq arity(M, OP:PrimOp AA) = OP:PrimOp AA .
+     eq arity((M, F |-> N:Nat), F EE) = FunApp F N:Nat EE .
      eq arity(M, F EE) = FunApp F nothing EE [owise] .
      eq arity (M, V:Var) = V:Var .
      eq arity (M, error msg:String) = error msg:String .
@@ -397,72 +209,102 @@ fmod MINISTG-PROGRAM is
      eq arity(M, (V -> E) ; Alts) = (V -> arity(M,E)) ; arity(M,Alts) .
      eq arity(M, (nil).AltGroup) = nil .
 
-     *** Intermediate configurations
+endfm
 
-     op Done _ _ : Obj Heap -> Configuration [ctor format (d n n d) ] .
-     op Fail _ {_} : String CCS -> Configuration [ctor format (! so r d d o) ] .
-     op _ [STACK: _ HEAP: _ COUNTER: _ CCS: _] : Exp Stack Heap Nat CCS -> Configuration [ctor prec 80 format (nn nm s on++++ nm---- on++++ nm---- so nm so m o) ] .
+fmod MINISTG-METAL is 
+     including MINISTG-SYNTAX .
 
-     *** Log elements
+     op THUNK (_) : Exp -> Obj [ctor format (c d o c o) ] .
+     op PAP (_ _) : Var AtomList -> Obj [ctor format (c d o d c o)] .
+     op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
+     op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
+     op BLACKHOLE : -> Obj [ctor format (c o)] .
 
-     op STEP _ _ STACK: _ HEAP: _ CCS: _ : Nat Exp Stack Heap CCS -> Log [ctor format (!m s on++ nm-- on++++ nm---- on++++ nm---- nr o)] .
-     op FAIL _ {_} : String CCS -> Log [ctor format (! so sr d d o)] .
-     op _ HEAP: _ : Obj Heap -> Log [ctor format (++ --n n++++ o----)] .
-     op _ _ : Log Log -> Log [ctor assoc format (n nn d)] .
+     var O : Obj .
+     var C : Constructor .
+     vars E Z : Exp .
+     vars F V : Var .
+     vars AA VV Atoms : AtomList .
+     var AB : AtomBinding .
+     var ALT : AltGroup .
+     var M : ArityMap .
+     var H : Heap .
 
-     pr LIST{CCS} .
+     op isValue _ : Obj -> Bool .
+     eq isValue(THUNK(E)) = false .
+     eq isValue(BLACKHOLE) = false .
+     eq isValue O = true [owise] .
 
-     --- get the last non null stack trace in the log
-     op getLastStackTrace : Log -> CCS .
-     eq getLastStackTrace(L:Log) = $getLastStackTrace (getStackTrace(L:Log)) .
+     op isFunOrPap _ : Obj -> Bool .
+     eq isFunOrPap FUN(VV -> E) = true .
+     eq isFunOrPap PAP (F AA) = true .
+     eq isFunOrPap O = false [owise] .
 
-     op $getLastStackTrace : List{CCS} -> CCS .
-     eq $getLastStackTrace (init:List{CCS} nilccs) = $getLastStackTrace(init:List{CCS}) .
-     eq $getLastStackTrace (init:List{CCS} CCS) = CCS [owise] .
+     op UPD _ : Var -> Continuation [ctor] .
+     op CASE OF _ : AltGroup -> Continuation [ctor] .
+     op ARGS _ : AtomList -> Continuation [ctor] .
+     
+     eq vars(THUNK (E)) = vars E .
+     eq vars PAP (F AA) = F, vars AA .
+     eq vars CON(C AA) = vars AA .
+     eq vars FUN(AA -> E) = vars E \ vars AA .
+     eq vars BLACKHOLE = empty .
 
-     op getStackTrace : Log -> List{CCS} .
-     eq getStackTrace(STEP N E STACK: S HEAP: H CCS: CCS) = CCS .
-     eq getStackTrace(FAIL Msg:String {CCS}) = CCS .
-     eq getStackTrace (O HEAP: H) = nil .
-     eq getStackTrace(l1:Log l2:Log) = getStackTrace(l1:Log) getStackTrace(l2:Log) [owise] .
+     eq vars (ARGS AA) = vars AA .
+     eq vars (UPD V) = V .
+     eq vars (CASE OF ALT) = vars ALT .
 
-     *** Front end interface
+     eq THUNK (E) [AB] = THUNK (E [AB]) .
+     eq PAP (V AA) [AB] = PAP ((V[AB]) (AA [AB])) .
+     eq CON(C) [AB] = CON(C) .
+     eq CON(C AA) [AB] = CON(C (AA [AB])) [owise] .
+     eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
+     eq BLACKHOLE [AB] = BLACKHOLE .
 
-     ops GC Annotate AnnotateDeep : -> Options [ctor] .
-     op nil : -> Options [ctor] .
-     op __ : Options Options -> Options [ctor assoc comm id: nil] .
+     eq mkArityMap (V = FUN(VV -> Z) ;  H) = insert(V, size(VV), mkArityMap H) .
 
-     --- Takes a full program, performs arity analysis, runs it, and returns the reduction log
-     op eval _ : Heap -> Log .
-     eq eval H = eval(H, GC AnnotateDeep) .
-
-     --- Customizable version of evacl
-     op eval : Heap Options -> Log .
-     eq eval (H, GC Annotate Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, annotate (H))) .
-     eq eval (H, GC AnnotateDeep Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, annotateDeep (H))) .
-     eq eval (H, GC Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, H)) [owise] .
-     eq eval (H, Opts) = $eval(Opts, mkArityMap(H), 'main, H) [owise] .
-
-     op $eval : Options ArityMap [Exp] Heap -> Log .
-     eq $eval(Opts, M, E , DD) = bigstep(0, Opts, arity(M, E)  STACK: nil  HEAP: arity(M, DD)  COUNTER: 0  CCS: nilccs) .
-
-     *** Big Step evaluation
-
-     op bigstep : Nat Options Configuration -> Log . 
-     ceq bigstep(N, GC Opts, Conf:Configuration) = (STEP N E STACK: S HEAP: H CCS: CCS)
-	                                           bigstep(s N, GC Opts, E  STACK: S  HEAP: gc((vars E, vars S), H)  COUNTER: C:Nat  CCS: CCS)
-	          if E [STACK: S  HEAP: H  COUNTER: C:Nat  CCS: CCS] := Conf:Configuration .
-
-     ceq bigstep(N, Opts, Conf:Configuration) = (STEP N E STACK: S HEAP: H CCS: CCS)
-	                                        bigstep(s N, Opts, E  STACK: S  HEAP: H  COUNTER: C:Nat  CCS: CCS)
-	          if E [STACK: S  HEAP: H  COUNTER: C:Nat  CCS: CCS] := Conf:Configuration [owise] .
-
-     eq bigstep(N, Opts, Fail msg:String {CCS}) = FAIL msg:String {CCS} .
-     eq bigstep(N, Opts, Done O H) = O HEAP: H  .
+     eq arity(M, THUNK (E)) = THUNK (arity(M, E)) .
+     eq arity(M, CON(C Atoms)) = CON(C Atoms) .
+     eq arity(M, BLACKHOLE) = BLACKHOLE .
+     eq arity(M, PAP (V Atoms)) = PAP(V Atoms) .
+     eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
 
 endfm
 
-mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
+fmod MINISTG-PROGRAM is
+     protecting MINISTG-METAL .
+     
+     var O : Obj .
+     var E : Exp .
+     var C : Constructor .
+     var S : Stack .
+     var H : Heap .
+
+     **** Configuration constructor
+
+     op _ STACK: _ HEAP: _ COUNTER: _ : Exp Stack Heap Nat -> Configuration [ctor prec 80 format (nn nm on++++ nm---- on++++ nm---- os o)] . 
+
+     **** Intermediate configurations
+
+     op Done _ _ : Obj Heap -> Configuration [ctor format (d n n d) ] .
+     op Fail _  : String -> Configuration [ctor format (! so o) ] .
+     op _ [STACK: _ HEAP: _ COUNTER: _ ] : Exp Stack Heap Nat -> Configuration [ctor prec 80 format (nn nm s on++++ nm---- on++++ nm---- so m o) ] .
+
+     **** Big Step evaluation producing a log
+
+     op bigstep : Configuration -> Configuration . 
+     eq [bigstep-rec] : bigstep(E [STACK: S  HEAP: H  COUNTER: C:Nat]) = bigstep(E STACK: S HEAP: H  COUNTER: C:Nat) .
+     eq bigstep(Fail Msg:String) = Fail Msg:String .
+     eq bigstep(Done O H) = Done O H .
+
+     **** command line interface
+
+     op eval : Heap -> Configuration .
+     eq eval(H) = bigstep( 'main STACK: nil HEAP: arity(mkArityMap(H),H) COUNTER: 0) .
+
+endfm
+
+mod MINISTG-RELATION is including MINISTG-PROGRAM .
 
      op bool  : Bool -> Exp .
      eq bool(B:Bool) = if B:Bool then 1 else 0 fi .
@@ -487,196 +329,228 @@ mod MINISTG-RELATION-COMMON is including MINISTG-PROGRAM .
      var O : Obj .
      vars AA AA' : AtomList . 
      vars AA1 AA2 Alts : AltGroup .
-     vars CCS CCS' : CCS .
-     var CC : Label .
 
      crl [LET] :             let V = O in E
-	                STACK: S  HEAP: H COUNTER: N CCS: CCS
+	                STACK: S  HEAP: H COUNTER: N 
              => --------------------------------------------
                                E [V :-> V'] 
-                  [STACK: S  HEAP: V' = (O <- {CCS}) ; H COUNTER: N + 1 CCS: CCS]
+                  [STACK: S  HEAP: V' = O ; H COUNTER: N + 1 ]
                                                         if V' := qid(string(V) + string(N, 10)) .
+
+     rl [THUNK] :                            X 
+                       STACK: S  HEAP: H ; X = THUNK (E)  ; H'  COUNTER: N 
+                =>   --------------------------------------------------------------
+                                             E
+                     [STACK: (UPD X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N] .
+
+     crl [UPDATE1] : X
+                     STACK: (UPD Y) S
+                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
+                     COUNTER: N
+                 => ---------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; X = O ; H' ; Y = O ; H''
+                      COUNTER: N ]                       if isValue(O) .
+
+
+     crl [UPDATE2] :  X
+                     STACK: (UPD Y) S
+                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
+                     COUNTER: N
+                 => -------------------------------------------
+                     X
+                     [STACK: S
+                      HEAP: H ; Y = O ; H' ; X = O ; H''
+                      COUNTER: N ]                            if isValue(O) .
                                             
 
      crl [CASE-CON] :     case V of { AA1 ; C XX -> E ; AA2 } 
-                            STACK: S HEAP: H COUNTER: N CCS: CCS
+                            STACK: S HEAP: H COUNTER: N 
                   => ----------------------------------------------
                                     E [ XX :-> AA ]  
-                            [STACK: S HEAP: H  COUNTER: N CCS: CCS]
+                            [STACK: S HEAP: H  COUNTER: N ]
                                                         if H' ; V = CON ( C AA) ; H'' := H .
 
      rl [CASE-ANY-LIT] :
                          case L:Lit of { AA1 ; X -> E }
-                          STACK: S HEAP: H COUNTER: N CCS: CCS
+                          STACK: S HEAP: H COUNTER: N 
                   =>  ---------------------------------------
                                  E [ X :-> L:Lit ] 
-                          [STACK: S HEAP: H COUNTER: N CCS: CCS] .
+                          [STACK: S HEAP: H COUNTER: N ] .
 
      crl [CASE-ANY-VAR] :
                          case V of { AA1 ; X -> E } 
-                        STACK: S HEAP: H COUNTER: N CCS: CCS
+                        STACK: S HEAP: H COUNTER: N 
                   =>  ----------------------------------------
                                E [ X :-> V ]
-                        [STACK: S HEAP: H COUNTER: N CCS: CCS]   
+                        [STACK: S HEAP: H COUNTER: N ]   
 	                                                         if H' ; V = O ; H'' := H /\
 	                                                            isValue(O) .
 
      rl [CASE] :                case E of { AA1 }
-                           STACK: S  HEAP: H COUNTER: N CCS: CCS
+                           STACK: S  HEAP: H COUNTER: N 
                => ---------------------------------------------
                                         E
-                  [STACK: (CASE OF AA1) S  HEAP: H  COUNTER: N CCS: CCS] .
+                  [STACK: (CASE OF AA1) S  HEAP: H  COUNTER: N ] .
 
      rl [RET1] :                      L:Lit
-                     STACK: (CASE OF AA1) S HEAP: H COUNTER: N CCS: CCS
+                     STACK: (CASE OF AA1) S HEAP: H COUNTER: N 
 	       =>   ---------------------------------------------
                                case L:Lit of { AA1 } 
-                            [STACK: S  HEAP: H  COUNTER: N CCS: CCS] .
+                            [STACK: S  HEAP: H  COUNTER: N ] .
                       
      crl [RET2] :                       V
-                      STACK: (CASE OF AA1) S HEAP: H COUNTER: N CCS: CCS
+                      STACK: (CASE OF AA1) S HEAP: H COUNTER: N 
 	       =>   -----------------------------------------------
                                   case V of { AA1 }
-                            [STACK: S HEAP: H COUNTER: N CCS: CCS]
+                            [STACK: S HEAP: H COUNTER: N ]
                                                             if H' ; V = O ; H'' := H /\ isValue(O) .
 
      crl [KNOWNCALL] :          FunApp F Ar AA 
-                        STACK: S  HEAP: H  COUNTER: N CCS: CCS
+                        STACK: S  HEAP: H  COUNTER: N 
                     => ------------------------------------------
                                  E [XX :-> AA]
-                        [STACK: S  HEAP: H   COUNTER: N  CCS: CCS]
+                        [STACK: S  HEAP: H   COUNTER: N  ]
 	                                                if size(AA) = Ar /\ 
                                                         H' ; F = FUN(XX -> E) ; H'' := H .
 
  *** Eval/Apply rules
 
+    crl [PCALL] :    FunApp F K:Maybe{Nat} AA
+                   STACK: S  HEAP: H  COUNTER: N
+               => --------------------------------
+                    FunApp F' nothing (AA' AA)
+                   [STACK: S  HEAP: H  COUNTER: N]         if H' ; F = PAP(F' AA') ; H'' := H .
+
+    crl [RETFUN] :                      F
+                     STACK: (ARGS  AA) S  HEAP: H  COUNTER: N
+                 => -------------------------------------------
+                                FunApp F nothing AA 
+                         [STACK: S  HEAP: H  COUNTER: N] 
+                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+
      crl [EXACT] :      FunApp F nothing AA
-                   STACK: S HEAP: H COUNTER: N CCS: CCS
+                   STACK: S HEAP: H COUNTER: N 
                =>  ------------------------------
                           (E [XX :-> AA]) 
-                   [STACK: S  HEAP: H  COUNTER: N CCS: CCS]
+                   [STACK: S  HEAP: H  COUNTER: N ]
                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
 	                                                 size(AA) = size(XX) .
 
      crl [CALLK] :             FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
-                                  STACK: S HEAP: H COUNTER: N CCS: CCS
+                                  STACK: S HEAP: H COUNTER: N 
                =>  --------------------------------------------------------------------
                                             (E [XX :-> AA]) 
-                    [STACK: (ARGS{CCS} Rest:NeAtomList) S  HEAP: H  COUNTER: N CCS: CCS]  
+                    [STACK: (ARGS Rest:NeAtomList) S  HEAP: H  COUNTER: N ]  
                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
 	                                                 size(AA) = size(XX) .
 
      crl [PAP] :                       FunApp F K:Maybe{Nat} AA
-                                 STACK: S HEAP: H COUNTER: N CCS: CCS
+                                 STACK: S HEAP: H COUNTER: N 
              =>  ------------------------------------------------------------------
                                                   X
-                   [STACK: S  HEAP: (X = PAP{CCS} (F AA) ; H)  COUNTER: N + 1  CCS: CCS]
+                   [STACK: S  HEAP: (X = PAP (F AA) ; H)  COUNTER: N + 1  ]
 
                                                        if H' ; F = FUN(XX -> E) ; H'' := H /\
                                                           size(AA) < size(XX) /\
 	                                                  X := qid ("$" + string(N, 10)) .
 
     crl [TCALL] :                   FunApp F nothing AA
-                           STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                           STACK: S  HEAP: H  COUNTER: N  
                => ------------------------------------------------------------
                                              F
-                   [STACK: (ARGS{CCS} AA) S  HEAP: H  COUNTER: N  CCS: CCS ]
-                                                           if H' ; F = THUNK{CCS'} (E) ; H'' := H .
+                   [STACK: (ARGS AA) S  HEAP: H  COUNTER: N   ]
+                                                           if H' ; F = THUNK(E) ; H'' := H .
 
 
 
  *** Other rules
-
-     rl [STACK] :             stack CC E
-                    STACK: S  HEAP: H  COUNTER: N  CCS: CCS
-               => -------------------------------------------
-                                   E
-                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS | CC] .
 
 
     rl [ERROR] :     error msg:String
                      STACK: S  
                      HEAP: H
                      COUNTER: N
-                     CCS: CCS
+                     
                 => ----------y-----------------------------
-                     Fail msg:String {CCS} .
+                     Fail msg:String .
 
      rl [ERROR-LET] :       let BB in error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                      STACK: S  HEAP: H  COUNTER: N  
                  => -------------------------------------------
                                  error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
+                      STACK: S  HEAP: H  COUNTER: N   .
 
      rl [ERROR-CASE] :    case error msg:String of { Alts }
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                      STACK: S  HEAP: H  COUNTER: N  
                  => -------------------------------------------
                                  error msg:String
-                      STACK: S  HEAP: H  COUNTER: N  CCS: CCS .
+                      STACK: S  HEAP: H  COUNTER: N   .
 
      crl [DONE] :                    V
-                      STACK: nil HEAP: H COUNTER: N CCS: CCS
+                      STACK: nil HEAP: H COUNTER: N 
               => ---------------------------------------
-                         Done O (gc(vars O, H))         if H' ; V = O ; H'' := H 
+                                   Done O H               if H' ; V = O ; H'' := H 
                                                           /\ V =/= 'main .
 
      rl [PRIMOP-PLUS] :        plus# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => -----------------------------------
                                 A1:Int + A2:Int
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-SUB] :        sub# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => --------------------------------------------
                               (A1:Int + (- A2:Int))
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-EQ] :         eq# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => ---------------------------------------------
                             bool(A1:Int == A2:Int)
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-GT] :         gt# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => ---------------------------------------------
                             bool(A1:Int > A2:Int)
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-GTE] :         gte# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => --------------------------------------------
                             bool(A1:Int >= A2:Int)
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-LT] :         lt# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => --------------------------------------------
                             bool(A1:Int < A2:Int)
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      rl [PRIMOP-LTE] :         lte# A1:Int A2:Int
-                          STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                          STACK: S  HEAP: H  COUNTER: N  
                      => --------------------------------------------
                             bool(A1:Int <= A2:Int)
-	                  [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] .
+	                  [STACK: S  HEAP: H  COUNTER: N  ] .
 
      crl [PRIMOP-INT_TO_BOOL-0] : 
                                           intToBool# 0
-                                  STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                                  STACK: S  HEAP: H  COUNTER: N  
                      => -----------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(False) ; H  COUNTER: s N  CCS: CCS] 
+	                  [STACK: S  HEAP: X = CON(False) ; H  COUNTER: s N  ] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 
      crl [PRIMOP-INT_TO_BOOL-1] : 
                                           intToBool# 1
-                                  STACK: S  HEAP: H  COUNTER: N  CCS: CCS
+                                  STACK: S  HEAP: H  COUNTER: N
                      => --------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(True) ; H  COUNTER: s N  CCS: CCS] 
+	                  [STACK: S  HEAP: X = CON(True) ; H  COUNTER: s N] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 endm

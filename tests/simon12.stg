@@ -1,5 +1,6 @@
 
-load "prelude.stg" .
+load "prelude.stg"
+load ../ministg-check.maude
 
 mod MINISTG-SIMON12 is including MINISTG-PRELUDE .
 
@@ -22,21 +23,23 @@ eq pgm =
 endm
 
 mod MINISTG-SIMON12-EVALUATION is
-  including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION .
+  protecting MINISTG-SIMON12 .
+  protecting MINISTG-RELATION-EVALUATION .
+  protecting MINISTG-CHECK .
 endm
 
 
 mod MINISTG-SIMON12-EVALUATION-ARGS is
-  including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+  protecting MINISTG-SIMON12 .
+  protecting MINISTG-RELATION-EVALUATION-ARGS .
+  protecting MINISTG-CHECK .
 endm
 
 
 mod MINISTG-SIMON12-EVALUATION-TRACKTHUNKS is
   including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
-*** Gives the same stack as above 
+  protecting MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+  protecting MINISTG-CHECK .
 endm
 
 rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
@@ -79,3 +82,9 @@ rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
    - The Evaluation-args one:   "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
                                 \_______________________________________/                                       \___________________________/
 ***)
+
+
+*** Check that main is at the root of every stack trace other than the first one
+*** To ensure that this holds until the end of the evaluation, we require that the stack trace is empty forever after.
+red in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : modelCheck(init pgm, O(O([] startsWith "main"))) .
+		

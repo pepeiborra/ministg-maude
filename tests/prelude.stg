@@ -2,7 +2,7 @@ load "../ministg-scc.maude" .
 
 mod MINISTG-PRELUDE is 
 
-pr MINISTG-RELATION-COMMON .
+pr MINISTG-RELATION-CCS-COMMON .
 
 op I     : -> Constructor [ctor] .
 op Nil   : -> Constructor [ctor] .
