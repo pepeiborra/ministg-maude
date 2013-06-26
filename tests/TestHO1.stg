@@ -12,4 +12,9 @@ eq pgm =
 
 endm
 
-rewrite eval(pgm) .
+mod MINISTG-MODULE-EVALUATION is
+    including MINISTG-TESTHO1 .
+    protecting MINISTG-RELATION-EVALUATION .
+endm
+
+rewrite in MINISTG-MODULE-EVALUATION : eval(pgm) .
