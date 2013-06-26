@@ -1,0 +1,28 @@
+
+load "prelude.stg" .
+
+mod MINISTG-PGM is including MINISTG-PRELUDE .
+
+op pgm : -> Heap .
+
+eq pgm =
+  'f = FUN ('x -> 'x);
+  'h = FUN ('i -> stack "h" let 'x = CON (I 3) in 'i 'x);
+  'main = THUNK(stack "main" 'h 'f)
+  .
+endm
+
+
+mod MINISTG-PGM-EVALUATION is
+    including MINISTG-PGM .
+    protecting MINISTG-RELATION-EVALUATION .
+endm
+
+
+mod MINISTG-PGM-STATIC is
+    including MINISTG-PGM .
+    protecting MINISTG-RELATION-STATIC .
+endm
+
+
+rewrite in MINISTG-PGM-STATIC : eval(pgm, GC) .
