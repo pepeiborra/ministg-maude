@@ -1,8 +1,8 @@
 
 load "prelude.stg"
-load ../ministg-check.maude
+*** load ../ministg-check.maude
 
-mod MINISTG-SIMON12 is including MINISTG-PRELUDE .
+mod MINISTG-MODULE is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
@@ -22,44 +22,66 @@ eq pgm =
   .
 endm
 
-mod MINISTG-SIMON12-EVALUATION is
-  protecting MINISTG-SIMON12 .
+mod MINISTG-MODULE-EVALUATION is
+  protecting MINISTG-MODULE .
   protecting MINISTG-RELATION-EVALUATION .
-  protecting MINISTG-CHECK .
+***  protecting MINISTG-CHECK .
 endm
 
 
-mod MINISTG-SIMON12-EVALUATION-ARGS is
-  protecting MINISTG-SIMON12 .
+mod MINISTG-MODULE-EVALUATION-ARGS is
+  protecting MINISTG-MODULE .
   protecting MINISTG-RELATION-EVALUATION-ARGS .
-  protecting MINISTG-CHECK .
+***  protecting MINISTG-CHECK .
 endm
 
 
-mod MINISTG-SIMON12-EVALUATION-TRACKTHUNKS is
-  including MINISTG-SIMON12 .
+mod MINISTG-MODULE-EVALUATION-TRACKTHUNKS is
+  including MINISTG-MODULE .
   protecting MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
-  protecting MINISTG-CHECK .
+***  protecting MINISTG-CHECK .
 endm
 
-rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
---- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
+mod MINISTG-MODULE-STATIC is
+  including MINISTG-MODULE .
+  protecting MINISTG-RELATION-STATIC .
+***  protecting MINISTG-CHECK .
+endm
 
-rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
+mod MINISTG-MODULE-STRICT is
+  including MINISTG-MODULE .
+  protecting MINISTG-RELATION-STRICT .
+***  protecting MINISTG-CHECK .
+endm
+
+--- rewrite in MINISTG-MODULE-STRICT : eval(pgm) .
+--- rewrite in MINISTG-MODULE-EVALUATION-ARGS : eval(pgm) .
+
+rew in MINISTG-MODULE-EVALUATION : getLastStackTrace (eval(pgm)) .
 ***(
-    rewrite in MINISTG-SIMON12-EVALUATION : getLastStackTrace(eval pgm) .
-    result CCS: "g" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt" 
+    rewrite in MINISTG-MODULE-EVALUATION : getLastStackTrace(eval pgm) .
+    result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
 ***)
 
-rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
 ***(
-    rewrite in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace(eval pgm) .
+    rewrite in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace(eval pgm) .
     result CCS: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
 ***)
 
-rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
 ***(
-    rewrite in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace(eval pgm) .
+    rewrite in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace(eval pgm) .
+    result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+***)
+
+rew in MINISTG-MODULE-STATIC : getLastStackTrace (eval(pgm)) .
+***(
+    result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
+***)
+
+rew in MINISTG-MODULE-STRICT : getLastStackTrace (eval(pgm)) .
+***(
     result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j" | "dblInt" | "plusInt"
 ***)
 
@@ -86,5 +108,5 @@ rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
 
 *** Check that main is at the root of every stack trace other than the first one
 *** To ensure that this holds until the end of the evaluation, we require that the stack trace is empty forever after.
-red in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : modelCheck(init pgm, O(O([] startsWith "main"))) .
+*** red in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : modelCheck(init pgm, O(O([] startsWith "main"))) .
 		

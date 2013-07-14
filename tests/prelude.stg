@@ -9,7 +9,7 @@ op Nil   : -> Constructor [ctor] .
 op Cons  : -> Constructor [ctor] .
 op Unit  : -> Constructor [ctor] .
 
-op Prelude : -> Heap .
+op Prelude : -> BindingList .
 eq Prelude =
   'unit = CON(Unit);
   'nil = CON(Nil);
@@ -24,6 +24,7 @@ eq Prelude =
   'eight = CON(I 8);
   'nine = CON(I 9);
   'ten = CON(I 10);
+
 
   'plusInt = FUN('x 'y ->
     case 'x of { 
@@ -110,13 +111,15 @@ eq Prelude =
   'map = FUN('f 'list ->
    case 'list of {
       Nil -> 'nil ;
-      Cons 'h 't -> let { 'x = THUNK('f 'h); 'rec = THUNK('map 'f 't); 'res = CON(Cons 'x 'rec) } in 'res
+      Cons 'h 't -> let { 'x = THUNK('f 'h); 
+                          'rec = THUNK('map 'f 't);
+                          'res = CON(Cons 'x 'rec) } in 'res
    }) ;
 
   'take = FUN('n 'xs ->
    case 'eqInt 'n 'zero of
-      { 'true -> 'nil ;
-        'false -> case 'xs of
+      { True -> 'nil ;
+        False -> case 'xs of
                  { Nil -> 'nil ;
                    Cons 'hd 'tl -> let { 'm = THUNK('subInt 'n 'one);
                                          'rec = THUNK('take 'm 'tl);
@@ -158,22 +161,29 @@ eq Prelude =
 
   'fromTo = FUN('from 'to -> 
         let {'cond = THUNK('lteInt 'from 'to);
+             'else = CON (Nil) } in
+        case 'cond of {
+          True -> 
+           let {
 	     'from1 = THUNK ('inc 'from ) ;
              'rec  = THUNK ('fromTo 'from1 'to) ;
-	     'then = CON (Cons 'from 'rec) ;
-             'else = CON (Nil) } in
-        'ifte 'cond 'then 'else);
+	     'then = CON (Cons 'from 'rec) 
+              } in 'then ;
+          False -> 'else });
        
   'fib = FUN('i -> let
               { 'eqzero = THUNK('eqInt 'i 'zero); 
 	        'eqone  = THUNK('eqInt 'i 'one); 
-		'cond   = THUNK('or 'eqzero 'eqone);
-		'rec    = THUNK( 
+		'cond   = THUNK('or 'eqzero 'eqone)
+              } in
+          case 'cond of {
+            False -> 
+             let 'rec    = THUNK( 
 		  let { 'i1 = THUNK('subInt 'i 'one) ;
 	      	        'i2 = THUNK('subInt 'i 'two) 
 		      } in 'fib 'i1 'i2)
-              } in
-                'ifte 'cond 'one 'rec)
+              in 'rec ;
+            True -> 'one })
 
   .
 

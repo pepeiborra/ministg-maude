@@ -22,9 +22,28 @@ fmod MINISTG-CCS is
 
 endfm
 
+fmod MINISTG-LAZY is
+     including MINISTG-SYNTAX .
+
+     op lazy _ : Obj -> Obj [ctor format (c d d)] .
+  
+     var O : Obj .
+     var AB : AtomBinding .
+     var M : ArityMap .
+
+     eq vars (lazy O) = vars O .
+     eq (lazy O) [AB] = lazy (O [AB]) .
+     eq arity(M, lazy O) = lazy (arity(M, O)) .
+
+     op isLazy _ : Obj -> Bool .
+     eq isLazy(lazy O) = true .
+     eq isLazy(O) = false [owise] .
+
+endfm
+
 fmod MINISTG-SYNTAX-CCS is 
      pr MINISTG-CCS .
-     including MINISTG-SYNTAX .
+     pr MINISTG-LAZY .
 
      op stack _ _ : Label Exp -> Exp [ctor prec 42 gather (E e)  format (c r o d) ] .
      op scc _ _ : Label Exp -> Exp [prec 42 gather (E e) ] .
@@ -53,7 +72,9 @@ fmod MINISTG-METAL-CCS is
      op PAP (_ _) : Var AtomList -> Obj .
      eq PAP(V AA) = PAP{nilccs} (V AA) .
      op CON(_) : ConstructorExp -> Obj [ctor format (c d o c o)] .
-     op FUN(_ -> _) : AtomList Exp -> Obj [ctor format (c d o b o c o)] .
+     op FUN{_} (_ -> _) : CCS AtomList Exp -> Obj [ctor format (c d d d d o b o c o)] .
+     op FUN (_ -> _) : AtomList Exp -> Obj .
+     eq FUN (AA -> E) = FUN{nilccs} (AA -> E) .
      op BLACKHOLE : -> Obj [ctor format (c o)] .
 
      var O : Obj .
@@ -69,11 +90,13 @@ fmod MINISTG-METAL-CCS is
      op isValue _ : Obj -> Bool .
      eq isValue(THUNK{CCS} (E)) = false .
      eq isValue(BLACKHOLE) = false .
+     eq isValue (lazy O) = isValue O .
      eq isValue O = true [owise] .
 
      op isFunOrPap _ : Obj -> Bool .
-     eq isFunOrPap FUN(VV -> E) = true .
+     eq isFunOrPap FUN{CCS}(VV -> E) = true .
      eq isFunOrPap PAP{CCS} (F AA) = true .
+     eq isFunOrPap (lazy O) = isFunOrPap O .
      eq isFunOrPap O = false [owise] .
 
      op UPD{_} _ : CCS Var -> Continuation [ctor format (d r d d so d) ] .
@@ -84,15 +107,19 @@ fmod MINISTG-METAL-CCS is
      eq vars(THUNK{CCS} (E)) = vars E .
      eq vars PAP{CCS} (F AA) = F, vars AA .
      eq vars CON(C AA) = vars AA .
-     eq vars FUN(AA -> E) = vars E \ vars AA .
+     eq vars FUN{CCS}(AA -> E) = vars E \ vars AA .
      eq vars BLACKHOLE = empty .
+
+     eq vars(UPD{CCS} V) = V .
+     eq vars(CASE OF AA:AltGroup) = vars(AA:AltGroup) .
+     eq vars(ARGS{CCS} AA) = makeSet(AA) .
 
      op _ [_] : Obj AtomBinding -> Obj .     
      eq THUNK{CCS} (E) [AB] = THUNK{CCS} (E [AB]) .
      eq PAP{CCS} (V AA) [AB] = PAP{CCS} ((V[AB]) (AA [AB])) .
      eq CON(C) [AB] = CON(C) .
      eq CON(C AA) [AB] = CON(C (AA [AB])) [owise] .
-     eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
+     eq FUN{CCS}(VV -> Z) [AB] = FUN{CCS}(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
 
      eq arity(M, stack CC E) = stack CC (arity(M, E)) .
@@ -101,7 +128,7 @@ fmod MINISTG-METAL-CCS is
      eq arity(M, CON(C Atoms)) = CON(C Atoms) .
      eq arity(M, BLACKHOLE) = BLACKHOLE .
      eq arity(M, PAP{CCS} (V Atoms)) = PAP{CCS}(V Atoms) .
-     eq arity(M, FUN(VV -> E)) = FUN(VV -> arity(M, E)) .
+     eq arity(M, FUN{CCS}(VV -> E)) = FUN{CCS}(VV -> arity(M, E)) .
 
 endfm 
 
@@ -110,10 +137,11 @@ fmod MINISTG-ANNOTATE is
      pr QID .
 
      var B : Binding .
+     var BL : BindingList .
      var H : Heap .
      var A : Atom .
      vars V V' : Var .
-     var O : Obj .
+     vars O O' : Obj .
      var E : Exp .
      var C : Constructor .
      var AA : AtomList .
@@ -124,37 +152,41 @@ fmod MINISTG-ANNOTATE is
      *** overwrite an existing CCS in a THUNK or PAP
      op _ <- {_} : Obj CCS -> Obj [prec 38] .
      eq (THUNK{CCS} (E)) <- {CCS'} = THUNK{CCS'} (E) .
-     eq PAP{CCS} (E AA) <- {CCS'} = PAP{CCS'} (E AA) .
-     eq O <- {CCS} = O [owise] .
+     eq PAP{CCS} (E AA)  <- {CCS'} = PAP{CCS'} (E AA) .
+     eq O <- {CCS}                 = O [owise] .
 
 
      *** annotate a program without overwriting user annotations
-     op annotate _ : Heap -> Heap .
-     eq annotate (nil).Heap = nil .
-     eq annotate (B ; H) = annotate B ; annotate H [owise] .
+     op annotate _ : BindingList -> BindingList .
+     eq annotate nil      = nil .
+     eq annotate (B ; BL) = annotate B ; annotate BL [owise] .
 
      op annotate _ : Binding -> Binding .
-     eq annotate (V     = THUNK{CCS} (stack CC E)) = V = THUNK{CCS} (stack CC E) .
-     eq annotate (V:Qid = THUNK {CCS} (E)) = V:Qid = THUNK{CCS} (stack string(V:Qid) E) [owise] .
-     eq annotate (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC E) .
-     eq annotate (V:Qid = FUN (AA -> E)) = V:Qid = FUN (AA -> stack string(V:Qid) E) [owise] .
-     eq annotate (V = CON(C AA)) = V = CON(C AA) .
-     eq annotate (V = PAP{CCS} (V' AA)) = V = PAP{CCS} (V' AA) .
+     eq annotate (V     = THUNK{CCS}  (stack CC E))       = V      = THUNK{CCS} (stack CC E) .
+     eq annotate (V:Qid = THUNK{CCS}  (E))                = V:Qid  = THUNK{CCS} (stack string(V:Qid) E) [owise] .
+     eq annotate (V     = FUN{CCS}    (AA -> stack CC E)) = V      = FUN{CCS} (AA -> stack CC E) .
+     eq annotate (V:Qid = FUN{nilccs} (AA -> E))          = V:Qid  = FUN{string(V:Qid)} (AA -> E) .
+     eq annotate (V:Qid = FUN{CCS}    (AA -> E))          = V:Qid  = FUN{CCS} (AA -> E)  [owise] .
+     eq annotate (V     = CON(C AA))                      = V      = CON(C AA) .
+     eq annotate (V     = PAP{CCS} (V' AA))               = V      = PAP{CCS} (V' AA) .
+     ceq annotate(V     = lazy O)                         = V      = lazy O'            if V = O' := annotate(V = O) .
 
      vars SS SS' : Label .
      *** annotate a program without overwriting user annotations
-     op annotateDeep _ : Heap -> Heap .
-     eq annotateDeep (nil).Heap = nil .
-     eq annotateDeep (B ; H) = annotateDeep nilccs B ; annotateDeep H [owise] .
+     op annotateDeep _ : BindingList -> BindingList .
+     eq annotateDeep nil = nil .
+     eq annotateDeep (B ; BL) = annotateDeep nilccs B ; annotateDeep BL [owise] .
 
      op  annotateDeep _ _ : Label Binding -> Binding .
-     eq  annotateDeep SS (V     = THUNK{CCS'} (stack CC E)) = V = THUNK{CCS'} (stack CC (annotateDeep (CC . SS) E)) .
-     ceq annotateDeep nilccs (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
-     ceq annotateDeep SS (V:Qid = THUNK {CCS'} (E))  = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilccs [owise] . 
-     eq  annotateDeep SS (V     = FUN (AA -> stack CC E)) = V = FUN (AA -> stack CC annotateDeep (CC . SS) E) .
-     ceq annotateDeep SS (V:Qid = FUN (AA -> E))     = V:Qid = FUN (AA -> stack SS' annotateDeep SS' E) if SS' := SS . string(V:Qid) [owise] .
-     eq  annotateDeep SS (V     = CON(C AA))         = V = CON(C AA) .
-     eq  annotateDeep SS (V     = PAP{CCS'} (V' AA)) = V = PAP{CCS'} (V' AA) .
+     eq  annotateDeep SS     (V     = THUNK{CCS'} (stack CC E))    = V     = THUNK{CCS'} (stack CC (annotateDeep (CC . SS) E)) .
+     ceq annotateDeep nilccs (V:Qid = THUNK{CCS'} (E))             = V:Qid = THUNK{CCS'} (stack SS annotateDeep SS E) if SS := string(V:Qid) [owise] . --- annotate top level thunks only
+     ceq annotateDeep SS     (V:Qid = THUNK{CCS'} (E))             = V:Qid = THUNK{CCS'} (annotateDeep SS E) if SS =/= nilccs [owise] . 
+     eq  annotateDeep SS     (V     = FUN{CCS} (AA -> stack CC E)) = V     = FUN{CCS}    (AA -> stack CC annotateDeep (CC . SS) E) .
+     ceq annotateDeep SS     (V:Qid = FUN{nilccs} (AA -> E))       = V:Qid = FUN{nilccs} (AA -> stack SS' annotateDeep SS' E) if SS' := SS . string(V:Qid).
+     eq  annotateDeep SS     (V:Qid = FUN{CCS}    (AA -> E))       = V:Qid = FUN{CCS}    (AA -> annotateDeep SS E) [owise] .
+     eq  annotateDeep SS     (V     = CON(C AA))                   = V     = CON(C AA) .
+     eq  annotateDeep SS     (V     = PAP{CCS'}   (V' AA))         = V     = PAP{CCS'}   (V' AA) .
+     ceq annotateDeep SS     (V     = lazy O)                      = V     = lazy O' if V = O' := annotateDeep SS (V = O) .
      
      op annotateDeep _ _ : Label Exp -> Exp .
      eq annotateDeep SS (let B in E) = let annotateDeep SS B in annotateDeep SS E .
@@ -172,17 +204,49 @@ fmod MINISTG-ANNOTATE is
 
 endfm
 
-view CCS from TRIV to MINISTG-CCS is sort Elt to CCS . endv
+fmod MINISTG-PROGRAM-LOG is
+     pr MINISTG-CCS .
+     pr MINISTG-SYNTAX .
+
+     sort LogFrame .
+
+     op STEP _ _ STACK: _ HEAP: _ CCS: _ : Nat Exp Stack Heap CCS -> LogFrame [ctor format (!m s on++ nm-- on++++ nm---- on++++ nm---- nr o)] .
+     op FAIL _ {_} : String CCS -> LogFrame [ctor format (! so sr d d o)] .
+     op _ HEAP: _ : Obj Heap -> LogFrame [ctor format (++ --n n++++ o----)] .
+endfm
+
+
+fmod MINISTG-PROGRAM-OPTIONS is
+
+     sort Option .
+
+     ops GC Annotate AnnotateDeep : -> Option [ctor] .    
+endfm
+
+view CCS      from TRIV to MINISTG-CCS is sort Elt to CCS . endv
+view LogFrame from TRIV to MINISTG-PROGRAM-LOG is sort Elt to LogFrame . endv
+view Option   from TRIV to MINISTG-PROGRAM-OPTIONS is sort Elt to Option . endv
 
 fmod MINISTG-PROGRAM-CCS is
      pr MINISTG-ANNOTATE .
-     pr LIST{CCS} * (op __ : List{CCS} List{CCS} -> List{CCS} to __ [format (d n d)]) .
- 
+     pr MINISTG-PROGRAM-LOG .
+     pr MINISTG-PROGRAM-OPTIONS .
+     pr LIST-AND-SET{CCS} 
+        * (op __  : List{CCS} List{CCS} -> List{CCS} to __  [format (d n d)],
+           op (_,_) : Set{CCS} Set{CCS} -> Set{CCS} to (_,_) [format (d n d d)] ) .
+     pr SET{Option} 
+        * (sort Set{Option} to Options)
+        * ( op (_,_) : Options Options -> Options to __ ) .
+     pr LIST{LogFrame}
+        * (sort List{LogFrame} to Log)
+        * (op __ : Log Log -> Log to __ [format (n nn d)]) .
+
      var CC : Label .
-     var CCS : CCS .
+     vars CCS CCS' : CCS .
 
      vars B D : Binding .
-     vars H H' H'' BB DD DD' : Heap .
+     vars DD BL BL' BL'' : BindingList .
+     vars H H' H'' BB DD' : Heap .
      var O : Obj .
      var N : Nat .
      vars V F : Var .
@@ -195,28 +259,40 @@ fmod MINISTG-PROGRAM-CCS is
      var S : Stack .
      var M : ArityMap .
      vars NEXT SEEN : AtomSet .
+     var Opts : Options .
 
      *** Heap Analysis.
+     op makeList : Heap -> BindingList .
+     eq makeList((B, H)) = B ; makeList(H) .
+     eq makeList(empty) = nil .
+
+     op gc : AtomSet BindingList -> BindingList .
+     eq gc(Roots:AtomSet, BL) = restrict (reachable(Roots:AtomSet,BL), BL) [owise] .
+
      op gc : AtomSet Heap -> Heap .
-     eq gc(AA:AtomSet, H) = restrict (reachable(AA:AtomSet,H), H) .
+     eq gc(Roots:AtomSet, H) = makeSet(gc(Roots:AtomSet, makeList(H))) [owise] .
+
+     --- disambiguating
+     op gc : AtomSet Binding -> Binding .
+     eq gc(Roots:AtomSet, B) = B .
 
      --- restrict takes a set of vars V and a heap and returns a subheap containing only bindings for elements of V
-     op restrict : AtomSet Heap -> Heap .
-     eq restrict(empty, H) = nil .
-     eq restrict((V, V, VV:AtomSet), H) = restrict(VV:AtomSet, H) .
-     eq restrict((V, VV:AtomSet), (H ; V = O ; H')) = V = O ; restrict(VV:AtomSet, H ; H') .
-     eq restrict((V, VV:AtomSet), H) = restrict(VV:AtomSet, H) [owise] . *** this is probably a bug
+     op restrict : AtomSet BindingList -> BindingList .
+     eq restrict(empty, BL) = nil .
+     eq restrict((V, V, VV:AtomSet), BL) = restrict(VV:AtomSet, BL) .
+     eq restrict((V, VV:AtomSet), (BL ; V = O ; BL')) = restrict(VV:AtomSet, BL) ; V = O ; restrict(VV:AtomSet, BL') .
+     eq restrict((V, VV:AtomSet), BL) = restrict(VV:AtomSet, BL) [owise] . *** this is probably a bug
 
      *** reachble takes a set of root pointers and returns the transitive closure of reachable pointers
-     op reachable : AtomSet Heap -> AtomSet .
-     eq reachable (VV:AtomSet, H) = $reachable(VV:AtomSet, empty, H) .
+     op reachable : AtomSet BindingList -> AtomSet .
+     eq reachable (VV:AtomSet, BL) = $reachable(VV:AtomSet, empty, BL) .
  
-     op $reachable : AtomSet AtomSet Heap -> AtomSet .
-     eq $reachable(empty, SEEN, H) = SEEN .
-     eq $reachable((V,NEXT), (V,SEEN), H) = $reachable( NEXT, (V,SEEN), H) .
-     eq $reachable((V, V, NEXT), SEEN, H) = $reachable( (V,NEXT), SEEN, H) .
-     ceq $reachable((V, NEXT), SEEN, H) = $reachable( (vars O, NEXT), (V, SEEN), H )
-                                           if H' ; V = O ; H'' := H .
+     op $reachable : AtomSet AtomSet BindingList -> AtomSet .
+     eq $reachable(empty, SEEN, BL) = SEEN .
+     eq $reachable((V,NEXT), (V,SEEN), BL) = $reachable( NEXT, (V,SEEN), BL) .
+     eq $reachable((V, V, NEXT), SEEN, BL) = $reachable( (V,NEXT), SEEN, BL) .
+     ceq $reachable((V, NEXT), SEEN, BL) = $reachable( (vars O, NEXT), (V, SEEN), BL )
+                                           if BL' ; V = O ; BL'' := BL .
     
      **** Configurations
 
@@ -228,35 +304,19 @@ fmod MINISTG-PROGRAM-CCS is
      op Fail _ {_} : String CCS -> Configuration [ctor format (! so r d d o) ] .
      op Done _ _ : Obj Heap -> Configuration [ctor format (d n n d) ] .     
 
-     **** Execution log construction
-
-     sorts Program Log Options .
-     var Opts : Options .
-
-     op STEP _ _ STACK: _ HEAP: _ CCS: _ : Nat Exp Stack Heap CCS -> Log [ctor format (!m s on++ nm-- on++++ nm---- on++++ nm---- nr o)] .
-     op FAIL _ {_} : String CCS -> Log [ctor format (! so sr d d o)] .
-     op _ HEAP: _ : Obj Heap -> Log [ctor format (++ --n n++++ o----)] .
-     op _ _ : Log Log -> Log [ctor assoc format (n nn d)] .
-
-     **** Front end interface
-
-     ops GC Annotate AnnotateDeep : -> Options [ctor] .
-     op nil : -> Options [ctor] .
-     op __ : Options Options -> Options [ctor assoc comm id: nil] .
-
      *** Takes a full program, performs arity analysis, runs it, and returns the reduction log
-     op eval _ : Heap -> Log .
-     eq eval H = eval(H, GC AnnotateDeep) .
+     op eval _ : BindingList -> Log .
+     eq eval BL = eval(BL, GC AnnotateDeep) .
 
      --- Customizable version of eval
-     op eval : Heap Options -> Log .
-     eq eval (H, GC Annotate Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, annotate (H))) .
-     eq eval (H, GC AnnotateDeep Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, annotateDeep (H))) .
-     eq eval (H, GC Opts) = $eval(Opts, mkArityMap(H), 'main, gc('main, H)) [owise] .
-     eq eval (H, Opts) = $eval(Opts, mkArityMap(H), 'main, H) [owise] .
+     op eval : BindingList Options -> Log .
+     eq eval (BL, GC Annotate Opts)     = $eval(GC Opts, mkArityMap(BL), gc('main, annotate (BL))) .
+     eq eval (BL, GC AnnotateDeep Opts) = $eval(GC Opts, mkArityMap(BL), gc('main, annotateDeep (BL))) .
+     eq eval (BL, GC Opts)              = $eval(GC Opts, mkArityMap(BL), gc('main, BL)) [owise] .
+     eq eval (BL, Opts)                 = $eval(Opts, mkArityMap(BL), BL) [owise] .
 
-     op $eval : Options ArityMap [Exp] Heap -> Log .
-     eq $eval(Opts, M, E , DD) = bigstep(0, Opts, arity(M, E)  STACK: nil  HEAP: arity(M, DD)  COUNTER: 0  CCS: nilccs) .
+     op $eval : Options ArityMap BindingList -> Log .
+     eq $eval(Opts, M, BL) = bigstep(0, Opts, (let { arity(M,BL) } in 'main) STACK: nil  HEAP: empty  COUNTER: 0  CCS: nilccs) .
 
      ---- version of bigstep producing a log
      op bigstep : Nat Options Configuration -> Log . 
@@ -271,7 +331,6 @@ fmod MINISTG-PROGRAM-CCS is
      eq bigstep(N, Opts, Fail msg:String {CCS}) = FAIL msg:String {CCS} .
      eq bigstep(N, Opts, Done O H) = O HEAP: H  .
 
-
      ---- get the last non null stack trace in the log
      op getLastStackTrace : Log -> CCS .
      eq getLastStackTrace(L:Log) = $getLastStackTrace (getStackTrace(L:Log)) .
@@ -281,10 +340,20 @@ fmod MINISTG-PROGRAM-CCS is
      eq $getLastStackTrace (init:List{CCS} CCS) = CCS [owise] .
 
      op getStackTrace : Log -> List{CCS} .
+     op getStackTrace : LogFrame -> List{CCS} .
      eq getStackTrace(STEP N E STACK: S HEAP: H CCS: CCS) = CCS .
      eq getStackTrace(FAIL Msg:String {CCS}) = CCS .
      eq getStackTrace (O HEAP: H) = nil .
-     eq getStackTrace(l1:Log l2:Log) = getStackTrace(l1:Log) getStackTrace(l2:Log) [owise] .
+     eq getStackTrace(nil) = nil .
+     eq getStackTrace(l1:LogFrame l2:Log) = getStackTrace(l1:LogFrame) getStackTrace(l2:Log) .
+
+     op compact : List{CCS} -> List{CCS} .
+     eq compact(CCS CCS l:List{CCS}) = compact(CCS l:List{CCS}) .
+     eq compact(CCS CCS' l:List{CCS}) = CCS compact(CCS' l:List{CCS}) [owise].
+     eq compact(nil) = nil .
+
+     op getStackTraceSet : Log -> Set{CCS} .
+     eq getStackTraceSet(L:Log) = makeSet(getStackTrace(L:Log)) .
 
 endfm
 
@@ -312,24 +381,17 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
      var A : Atom .
      var O : Obj .
      vars AA AA' : AtomList . 
+     vars Alt : Alt .
      vars AA1 AA2 Alts : AltGroup .
      vars CCS CCS' : CCS .
      var CC : Label .
-
-     crl [LET] :             let V = O in E
-	                STACK: S  HEAP: H COUNTER: N CCS: CCS
-             => --------------------------------------------
-                               E [V :-> V'] 
-                  [STACK: S  HEAP: V' = (O <- {CCS}) ; H COUNTER: N + 1 CCS: CCS]
-                                                        if V' := qid(string(V) + string(N, 10)) .
-                                            
 
      crl [CASE-CON] :     case V of { AA1 ; C XX -> E ; AA2 } 
                             STACK: S HEAP: H COUNTER: N CCS: CCS
                   => ----------------------------------------------
                                     E [ XX :-> AA ]  
                             [STACK: S HEAP: H  COUNTER: N CCS: CCS]
-                                                        if H' ; V = CON ( C AA) ; H'' := H .
+                                                        if V = CON ( C AA), H' := H .
 
      rl [CASE-ANY-LIT] :
                          case L:Lit of { AA1 ; X -> E }
@@ -344,7 +406,7 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
                   =>  ----------------------------------------
                                E [ X :-> V ]
                         [STACK: S HEAP: H COUNTER: N CCS: CCS]   
-	                                                         if H' ; V = O ; H'' := H /\
+	                                                         if V = O, H' := H /\
 	                                                            isValue(O) .
 
      rl [CASE] :                case E of { AA1 }
@@ -364,41 +426,17 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
 	       =>   -----------------------------------------------
                                   case V of { AA1 }
                             [STACK: S HEAP: H COUNTER: N CCS: CCS]
-                                                            if H' ; V = O ; H'' := H /\ isValue(O) .
-
-     crl [KNOWNCALL] :          FunApp F Ar AA 
-                        STACK: S  HEAP: H  COUNTER: N CCS: CCS
-                    => ------------------------------------------
-                                 E [XX :-> AA]
-                        [STACK: S  HEAP: H   COUNTER: N  CCS: CCS]
-	                                                if size(AA) = Ar /\ 
-                                                        H' ; F = FUN(XX -> E) ; H'' := H .
+                                                            if V = O, H' := H /\ isValue(O) .
 
  *** Eval/Apply rules
-
-     crl [EXACT] :      FunApp F nothing AA
-                   STACK: S HEAP: H COUNTER: N CCS: CCS
-               =>  ------------------------------
-                          (E [XX :-> AA]) 
-                   [STACK: S  HEAP: H  COUNTER: N CCS: CCS]
-                                                      if H' ; F = FUN(XX -> E) ; H'' := H /\
-	                                                 size(AA) = size(XX) .
-
-     crl [CALLK] :             FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
-                                  STACK: S HEAP: H COUNTER: N CCS: CCS
-               =>  --------------------------------------------------------------------
-                                            (E [XX :-> AA]) 
-                    [STACK: (ARGS{CCS} Rest:NeAtomList) S  HEAP: H  COUNTER: N CCS: CCS]  
-                                                      if H' ; F = FUN(XX -> E) ; H'' := H /\
-	                                                 size(AA) = size(XX) .
 
      crl [PAP] :                       FunApp F K:Maybe{Nat} AA
                                  STACK: S HEAP: H COUNTER: N CCS: CCS
              =>  ------------------------------------------------------------------
                                                   X
-                   [STACK: S  HEAP: (X = PAP{CCS} (F AA) ; H)  COUNTER: N + 1  CCS: CCS]
+                   [STACK: S  HEAP: (X = PAP{CCS} (F AA) , H)  COUNTER: N + 1  CCS: CCS]
 
-                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
+                                                       if F = FUN{CCS'}(XX -> E), H' := H /\
                                                           size(AA) < size(XX) /\
 	                                                  X := qid ("$" + string(N, 10)) .
 
@@ -407,7 +445,7 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
                => ------------------------------------------------------------
                                              F
                    [STACK: (ARGS{CCS} AA) S  HEAP: H  COUNTER: N  CCS: CCS ]
-                                                           if H' ; F = THUNK{CCS'} (E) ; H'' := H .
+                                                           if F = THUNK{CCS'} (E), H' := H .
 
 
 
@@ -443,7 +481,7 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
      crl [DONE] :                    V
                       STACK: nil HEAP: H COUNTER: N CCS: CCS
               => ---------------------------------------
-                         Done O (gc(vars O, H))         if H' ; V = O ; H'' := H 
+                         Done O (gc(vars O, H))         if V = O, H' := H 
                                                           /\ V =/= 'main .
 
      rl [PRIMOP-PLUS] :        plus# A1:Int A2:Int
@@ -493,7 +531,7 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
                                   STACK: S  HEAP: H  COUNTER: N  CCS: CCS
                      => -----------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(False) ; H  COUNTER: s N  CCS: CCS] 
+	                  [STACK: S  HEAP: X = CON(False) , H  COUNTER: s N  CCS: CCS] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 
@@ -502,141 +540,234 @@ mod MINISTG-RELATION-CCS-COMMON is including MINISTG-PROGRAM-CCS .
                                   STACK: S  HEAP: H  COUNTER: N  CCS: CCS
                      => --------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(True) ; H  COUNTER: s N  CCS: CCS] 
+	                  [STACK: S  HEAP: X = CON(True) , H  COUNTER: s N  CCS: CCS] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 endm 
 
-mod MINISTG-RELATION-EVALUATION is including MINISTG-RELATION-CCS-COMMON .
+mod MINISTG-RELATION-CCS-LET is including MINISTG-RELATION-CCS-COMMON .
 
-     vars K Ar : Nat .
-     vars N : Rat .
-     vars X Y F' F V V' : Var . 
-     vars XX VV : AtomList .
-     var B : Binding .
-     var BB : Heap . 
-     var S : Stack . 
-     vars H H' H'' : Heap .
-     vars Z E : Exp .
-     var C : Constructor .
-     var A : Atom .
+     var V V' : Var .
+     var S : Stack .
+     vars H : Heap .
+     vars CCS : CCS .
+     var N : Rat .
+     var E : Exp .
      var O : Obj .
-     vars AA AA' Rest : AtomList . 
-     vars AA1 AA2 : AltGroup .
+
+     crl [LET-LAZY] :             let V = lazy O in E
+	                STACK: S  HEAP: H COUNTER: N CCS: CCS
+             => --------------------------------------------
+                               E [V :-> V'] 
+                  [STACK: S  HEAP: V' = (O <- {CCS}), H COUNTER: N + 1 CCS: CCS]
+                                                   if V' := qid(string(V) + string(N, 10)) .
+
+     crl [LET] :             let V = O in E
+	                STACK: S  HEAP: H COUNTER: N CCS: CCS
+             => --------------------------------------------
+                               E [V :-> V'] 
+                  [STACK: S  HEAP: V' = (O <- {CCS}), H COUNTER: N + 1 CCS: CCS]
+                                                   if V' := qid(string(V) + string(N, 10)) 
+                                                      /\ not(isLazy O) .
+endm                                            
+
+mod MINISTG-RELATION-CCS-THUNK is including MINISTG-RELATION-CCS-COMMON .
+
+     var X : Var .
+     var S : Stack .
+     vars H H' : Heap .
      vars CCS CCS' : CCS .
-     var CC : Label .
-                                            
+     var N : Rat .
+     var E : Exp .
 
      rl [THUNK] :                            X 
-                       STACK: S  HEAP: H ; X = THUNK{CCS'} (E)  ; H'  COUNTER: N  CCS: CCS
+                       STACK: S  HEAP: H, X = THUNK{CCS'} (E)  COUNTER: N  CCS: CCS
                 =>   -------------------------------------------------------------------------
                                              E
-                     [STACK: (UPD {CCS} X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N  CCS: CCS'] .
+                     [STACK: (UPD {CCS} X) S   HEAP: H, X = BLACKHOLE COUNTER: N  CCS: CCS or CCS'] .
 
-     crl [UPDATE1] : X
+endm
+
+mod MINISTG-RELATION-CCS-UPDATE is including MINISTG-RELATION-CCS-COMMON .
+
+     var X Y : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var E : Exp .
+     var O : Obj . 
+
+     crl [UPDATE] :  X
                      STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
-                     COUNTER: N
-                     CCS: CCS
-                 => ---------------------------------
-                     X
-                     [STACK: S
-                      HEAP: H ; X = O ; H' ; Y = O ; H''
-                      COUNTER: N
-                      CCS: CCS' ]                       if isValue(O) .
-
-
-     crl [UPDATE2] :  X
-                     STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
+                     HEAP: Y = BLACKHOLE, X = O, H
                      COUNTER: N
                      CCS: CCS
                  => -------------------------------------------
                      X
                      [STACK: S
-                      HEAP: H ; Y = O ; H' ; X = O ; H''
+                      HEAP: Y = O, X = O, H
                       COUNTER: N
-                      CCS: CCS']                            if isValue(O) .
+                      CCS: CCS']              if isValue(O) .
+endm 
 
- *** Eval/Apply rules
+mod MINISTG-RELATION-CCS-KNOWNCALL is including MINISTG-RELATION-CCS-COMMON .
+
+     var X F : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var Ar : Nat .
+     vars AA XX : AtomList .
+     var E : Exp .
+
+     crl [KNOWNCALL] :          FunApp F Ar AA 
+                        STACK: S  HEAP: H  COUNTER: N CCS: CCS
+                    => ------------------------------------------
+                                 E [XX :-> AA]
+                        [STACK: S  HEAP: H   COUNTER: N  CCS: CCS]
+	                                                if size(AA) = Ar /\ 
+                                                        F = FUN{CCS'}(XX -> E), H' := H .
+endm
+
+mod MINISTG-RELATION-CCS-EXACT is including MINISTG-RELATION-CCS-COMMON .
+
+     var X F : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var Ar : Nat .
+     vars AA XX : AtomList .
+     var E : Exp .
+
+     crl [EXACT] :      FunApp F nothing AA
+                   STACK: S HEAP: H COUNTER: N CCS: CCS
+               =>  ------------------------------
+                          (E [XX :-> AA]) 
+                   [STACK: S  HEAP: H  COUNTER: N CCS: CCS]
+                                                      if F = FUN{CCS'}(XX -> E), H' := H /\
+	                                                 size(AA) = size(XX) .
+
+endm
+
+
+mod MINISTG-RELATION-CCS-CALLK is including MINISTG-RELATION-CCS-COMMON .
+
+     var X Y F : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var Ar : Nat .
+     vars AA XX : AtomList .
+     var E : Exp .
+
+
+     crl [CALLK] :             FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
+                                  STACK: S HEAP: H COUNTER: N CCS: CCS
+               =>  --------------------------------------------------------------------
+                                            (E [XX :-> AA]) 
+                    [STACK: (ARGS{CCS} Rest:NeAtomList) S  HEAP: H  COUNTER: N CCS: CCS]  
+                                                      if F = FUN{CCS'}(XX -> E), H' := H /\
+	                                                 size(AA) = size(XX) .
+endm
+
+
+mod MINISTG-RELATION-CCS-PCALL is including MINISTG-RELATION-CCS-COMMON .
+
+     var X F F' : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var Ar : Nat .
+     vars AA AA'  : AtomList .
+     var E : Exp .
+
 
     crl [PCALL] :    FunApp F K:Maybe{Nat} AA
                    STACK: S  HEAP: H  COUNTER: N CCS: CCS
                => ------------------------------------------
                     FunApp F' nothing (AA' AA)
-                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS']         if H' ; F = PAP{CCS'}(F' AA') ; H'' := H .
+                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS]  
+                                                        if F = PAP{CCS'}(F' AA'), H' := H .
+
+endm
+
+
+mod MINISTG-RELATION-CCS-RETFUN is including MINISTG-RELATION-CCS-COMMON .
+
+     var X F  : Var .
+     var S : Stack .
+     vars H H' : Heap .
+     vars CCS CCS' : CCS .
+     var N : Rat .
+     var Ar : Nat .
+     vars AA XX : AtomList .
+     var E : Exp .
+     var O : Obj .
 
     crl [RETFUN] :                               F
                      STACK: (ARGS {CCS'} AA) S  HEAP: H  COUNTER: N CCS: CCS
                  => ----------------------------------------------------------
                                          FunApp F nothing AA 
                             [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] 
-                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+                                                           if F = O, H' := H /\ isFunOrPap O .
+
+endm
+
+mod MINISTG-RELATION-EVALUATION is
+     including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-LET .
+     including MINISTG-RELATION-CCS-THUNK .
+     including MINISTG-RELATION-CCS-UPDATE .
+     including MINISTG-RELATION-CCS-EXACT .
+     including MINISTG-RELATION-CCS-KNOWNCALL .
+     including MINISTG-RELATION-CCS-PCALL .
+     including MINISTG-RELATION-CCS-CALLK .
+     including MINISTG-RELATION-CCS-RETFUN .
+                                            
 endm
 
 
 --- Variation that does not restore the CCS on an UPD frame. 
 --- Instead, it restores it on an ARGS frame (see the RETFUN rule). 
 mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-LET .
+     including MINISTG-RELATION-CCS-THUNK .
+     including MINISTG-RELATION-CCS-KNOWNCALL .
+     including MINISTG-RELATION-CCS-EXACT .
+     including MINISTG-RELATION-CCS-PCALL .
+     including MINISTG-RELATION-CCS-CALLK .
 
      vars K Ar : Nat .
      vars N : Rat .
      vars X Y F' F V V' : Var . 
      vars XX VV : AtomList .
      var B : Binding .
-     var BB : Heap . 
      var S : Stack . 
-     vars H H' H'' : Heap .
+     vars H H' : Heap .
      vars Z E : Exp .
-     var C : Constructor .
-     var A : Atom .
      var O : Obj .
-     vars AA AA' Rest : AtomList . 
-     vars AA1 AA2 : AltGroup .
+     vars AA : AtomList . 
      vars CCS CCS' : CCS .
-     var CC : Label .
                                             
 
-     rl [THUNK] :                            X 
-                       STACK: S  HEAP: H ; X = THUNK{CCS'} (E) ; H'  COUNTER: N  CCS: CCS
-                =>   -------------------------------------------------------------------------
-                                             E
-                     [STACK: (UPD {CCS} X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N  CCS: CCS'] .
-
-     crl [UPDATE1-NORESTORE] : 
+     crl [UPDATE-NORESTORE] : 
                      X
                      STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
+                     HEAP: X = O, Y = BLACKHOLE, H
                      COUNTER: N
                      CCS: CCS
                  => ---------------------------------
                      X
                      [STACK: S
-                      HEAP: H ; X = O ; H' ; Y = O ; H''
+                      HEAP: X = O, Y = O, H
                       COUNTER: N
                       CCS: CCS ]                       if isValue(O) .
-
-
-     crl [UPDATE2-NORESTORE] : 
-                     X
-                     STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
-                     COUNTER: N
-                     CCS: CCS
-                 => -------------------------------------------
-                     X
-                     [STACK: S
-                      HEAP: H ; Y = O ; H' ; X = O ; H''
-                      COUNTER: N
-                      CCS: CCS]                            if isValue(O) .
-
- *** Eval/Apply rules
-
-    crl [PCALL] :          FunApp F K:Maybe{Nat} AA
-                   STACK: S  HEAP: H  COUNTER: N CCS: CCS
-               => ------------------------------------------
-                           FunApp F' nothing (AA' AA)
-                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS']         if H' ; F = PAP{CCS'} (F' AA') ; H'' := H .
 
     crl [RETFUN-RESTORECCS] :  
                                               F
@@ -644,11 +775,53 @@ mod MINISTG-RELATION-EVALUATION-ARGS is including MINISTG-RELATION-CCS-COMMON .
                  => ----------------------------------------------------------
                                          FunApp F nothing AA 
                             [STACK: S  HEAP: H  COUNTER: N  CCS: CCS'] 
-                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+                                                           if F = O, H' := H /\ isFunOrPap O .
 endm
 
 --- Variation that does not reset the CCS when evaluating a thunk. Instead it appends the thunk CCS to the current one
+--- TODO this doesn't seem to be the case, review.
 mod MINISTG-RELATION-EVALUATION-TRACKTHUNKS is including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-LET .
+     including MINISTG-RELATION-CCS-UPDATE .
+     including MINISTG-RELATION-CCS-EXACT .
+     including MINISTG-RELATION-CCS-KNOWNCALL .
+     including MINISTG-RELATION-CCS-PCALL .
+     including MINISTG-RELATION-CCS-CALLK .
+     including MINISTG-RELATION-CCS-RETFUN .
+
+     vars K Ar : Nat .
+     vars N : Rat .
+     vars X Y F' F V V' : Var . 
+     vars XX VV : AtomList .
+     var B : Binding .
+     var BB : Heap . 
+     var S : Stack . 
+     vars H H' H'' : Heap .
+     vars Z E : Exp .
+     var C : Constructor .
+     var A : Atom .
+     var O : Obj .
+     vars AA AA' Rest : AtomList . 
+     vars AA1 AA2 : AltGroup .
+     vars CCS CCS' : CCS .
+     var CC : Label .
+
+     rl [THUNK-TRACKCCS] :                            X 
+                       STACK: S  HEAP: X = THUNK{CCS'} (E), H  COUNTER: N  CCS: CCS
+                =>   -------------------------------------------------------------------------
+                                             E
+                     [STACK: (UPD {CCS} X) S   HEAP: X = BLACKHOLE, H  COUNTER: N  CCS: CCS or CCS'] .
+
+endm
+
+
+mod MINISTG-RELATION-STATIC is including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-LET .
+     including MINISTG-RELATION-CCS-THUNK .
+     including MINISTG-RELATION-CCS-UPDATE .
+     including MINISTG-RELATION-CCS-RETFUN .
 
      vars K Ar : Nat .
      vars N : Rat .
@@ -668,50 +841,75 @@ mod MINISTG-RELATION-EVALUATION-TRACKTHUNKS is including MINISTG-RELATION-CCS-CO
      var CC : Label .
                                             
 
-     rl [THUNK-TRACKCCS] :                            X 
-                       STACK: S  HEAP: H ; X = THUNK{CCS'} (E)  ; H'  COUNTER: N  CCS: CCS
-                =>   -------------------------------------------------------------------------
-                                             E
-                     [STACK: (UPD {CCS} X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N  CCS: CCS or CCS'] .
+     crl [EXACT-RESTORE] :      
+                           FunApp F nothing AA
+                   STACK: S HEAP: H COUNTER: N CCS: CCS
+               =>  ------------------------------
+                          (E [XX :-> AA]) 
+                   [STACK: S  HEAP: H  COUNTER: N CCS: CCS' or CCS]
+                                                      if F = FUN{CCS'}(XX -> E), H'' := H /\
+	                                                 size(AA) = size(XX) .
 
-     crl [UPDATE1] : X
-                     STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
-                     COUNTER: N
-                     CCS: CCS
-                 => ---------------------------------
-                     X
-                     [STACK: S
-                      HEAP: H ; X = O ; H' ; Y = O ; H''
-                      COUNTER: N
-                      CCS: CCS' ]                       if isValue(O) .
+     crl [KNOWNCALL-RESTORE] :          
+                                  FunApp F Ar AA 
+                        STACK: S  HEAP: H  COUNTER: N CCS: CCS
+                    => ------------------------------------------
+                                 E [XX :-> AA]
+                        [STACK: S  HEAP: H   COUNTER: N  CCS: CCS' or CCS]
+	                                                if size(AA) = Ar /\ 
+                                                        F = FUN{CCS'}(XX -> E), H'' := H .
 
+     crl [CALLK-RESTORE] :    FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
+                                  STACK: S HEAP: H COUNTER: N CCS: CCS
+               =>  --------------------------------------------------------------------
+                                            (E [XX :-> AA]) 
+                    [STACK: (ARGS{CCS} Rest:NeAtomList) S  HEAP: H  COUNTER: N CCS: CCS or CCS']  
+                                                      if F = FUN{CCS'}(XX -> E), H' := H /\
+	                                                 size(AA) = size(XX) .
 
-     crl [UPDATE2] :  X
-                     STACK: (UPD {CCS'} Y) S
-                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
-                     COUNTER: N
-                     CCS: CCS
-                 => -------------------------------------------
-                     X
-                     [STACK: S
-                      HEAP: H ; Y = O ; H' ; X = O ; H''
-                      COUNTER: N
-                      CCS: CCS']                            if isValue(O) .
-
- *** Eval/Apply rules
-
-    crl [PCALL] :    FunApp F K:Maybe{Nat} AA
+    crl [PCALL-RESTORE] :   
+                           FunApp F K:Maybe{Nat} AA
                    STACK: S  HEAP: H  COUNTER: N CCS: CCS
                => ------------------------------------------
                     FunApp F' nothing (AA' AA)
-                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS or CCS']         if H' ; F = PAP{CCS'}(F' AA') ; H'' := H .
-
-    crl [RETFUN] :                               F
-                     STACK: (ARGS {CCS'} AA) S  HEAP: H  COUNTER: N CCS: CCS
-                 => ----------------------------------------------------------
-                                         FunApp F nothing AA 
-                            [STACK: S  HEAP: H  COUNTER: N  CCS: CCS] 
-                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+                   [STACK: S  HEAP: H  COUNTER: N  CCS: CCS or CCS']     
+                                                  if F = PAP{CCS'}(F' AA'), H'' := H .
 endm
 
+
+mod MINISTG-RELATION-STRICT is
+     including MINISTG-RELATION-CCS-COMMON .
+     including MINISTG-RELATION-CCS-THUNK .
+     including MINISTG-RELATION-CCS-UPDATE .
+     including MINISTG-RELATION-CCS-EXACT .
+     including MINISTG-RELATION-CCS-KNOWNCALL .
+     including MINISTG-RELATION-CCS-CALLK .
+     including MINISTG-RELATION-CCS-PCALL .
+     including MINISTG-RELATION-CCS-RETFUN .
+
+     vars N : Rat .
+     vars V V' F F' : Var . 
+     vars AA AA' : AtomSet .
+     var S : Stack . 
+     vars H H' : Heap .
+     vars E : Exp .
+     var O : Obj .
+     vars CCS CCS' : CCS .
+
+     crl [LET-STRICT] :                  let V = O in E
+	                   STACK: S  HEAP: H COUNTER: N CCS: CCS
+             => --------------------------------------------------------------
+                                      case V' of { V' -> (E[V :-> V']) }  
+                        [ STACK: S
+	                  HEAP:  V' = (O <- {CCS}), H
+                          COUNTER: N + 1 
+	                  CCS: CCS] 
+		                     if V' := qid(string(V) + string(N,10)) /\ not(isLazy O) .
+
+     crl [LET-LAZY] :             let V = lazy O in E
+	                STACK: S  HEAP: H COUNTER: N CCS: CCS
+             => --------------------------------------------
+                               E [V :-> V'] 
+                  [STACK: S  HEAP: V' = (O <- {CCS}), H COUNTER: N + 1 CCS: CCS]
+                                                   if V' := qid(string(V) + string(N, 10)) .
+endm                                            

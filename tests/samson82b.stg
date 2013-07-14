@@ -3,14 +3,13 @@ load "prelude.stg" .
 
 mod MINISTG-MODULE is including MINISTG-PRELUDE .
 
-op pgm : -> Heap .
+op pgm : -> BindingList .
+
 eq pgm =
-  Prelude ;
-  'list = THUNK('fromTo 'one 'two);
-  'main = THUNK( let { 'dbl = THUNK(stack "dbl" 'dblInt) ;
-       	               'res = THUNK('map 'dbl 'list) 
-       	      	  } 
-         in 'forcelist 'res)
+  'f = FUN ('w 'x -> 'x);
+  'e = lazy THUNK( error "foo");
+  'h = FUN ('i -> stack "h" let 'x = CON (I 3) in 'i 'x);
+  'main = THUNK(stack "main" let 'x = THUNK('f 2) in 'h 'x)
   .
 endm
 
@@ -44,7 +43,8 @@ mod MINISTG-MODULE-STRICT is
   protecting  MINISTG-RELATION-STRICT .
 endm
 
-rew in MINISTG-MODULE-EVALUATION : getStackTraceSet (eval(pgm)) . *** Gives the stack: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
+
+rew in MINISTG-MODULE-EVALUATION : getStackTraceSet(eval(pgm)) . *** Gives the stack: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
 rew in MINISTG-MODULE-EVALUATION-ARGS : getStackTraceSet (eval(pgm)) . *** Same stack as above
 rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getStackTraceSet (eval(pgm)) .
 rew in MINISTG-MODULE-STATIC : getStackTraceSet (eval(pgm)) .
@@ -55,3 +55,7 @@ rew in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) . *** Same
 rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
 rew in MINISTG-MODULE-STATIC : getLastStackTrace (eval(pgm)) .
 rew in MINISTG-MODULE-STRICT : getLastStackTrace (eval(pgm)) .
+
+set trace on .
+set trace eq off .
+rew in MINISTG-MODULE-STRICT :  (eval(pgm)) .

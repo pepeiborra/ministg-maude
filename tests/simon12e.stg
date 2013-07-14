@@ -1,7 +1,7 @@
 
 load "prelude.stg" .
 
-mod MINISTG-SIMON12 is including MINISTG-PRELUDE .
+mod MINISTG-MODULE is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
@@ -9,7 +9,7 @@ eq pgm =
   'c = CON (I 21);
   'constr = FUN('x 'f -> 'f 'x) ;
   'deconstr = FUN('p -> let 'f = FUN('x -> 'x) in 'p 'f) ;
-  'e = THUNK( stack "g.j" error "unhandled exception") ;
+  'e = lazy THUNK( stack "g.j" error "unhandled exception") ;
   'g = THUNK( let 
                { 'j = FUN('x -> stack nilccs 'e ) ;
                  'p = THUNK('constr 'j) ;
@@ -21,31 +21,6 @@ eq pgm =
            } in 'res 'unit)
   .
 endm
-
-mod MINISTG-SIMON12-EVALUATION is
-  including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION .
-endm
-
-
-mod MINISTG-SIMON12-EVALUATION-ARGS is
-  including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION-ARGS .
-endm
-
-
-mod MINISTG-SIMON12-EVALUATION-TRACKTHUNKS is
-  including MINISTG-SIMON12 .
-  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
-*** Gives the same stack as above 
-endm
-
-rewrite in MINISTG-SIMON12-EVALUATION : eval(pgm) .
---- rewrite in MINISTG-SIMON12-EVALUATION-ARGS : eval(pgm) .
-
-rew in MINISTG-SIMON12-EVALUATION : getLastStackTrace (eval(pgm)) .
-rew in MINISTG-SIMON12-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .
-rew in MINISTG-SIMON12-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
 
 ***(
 rewrite in MINISTG-SIMON12-EVALUATION : getLastStackTrace(eval pgm) .
@@ -70,3 +45,47 @@ result CCS: "main" | "main.res" | "g.res" | "main.h" | "deconstr" | "constr" | "
 
 - Only the TRACKTHUNKS strategy manages to approximate the eager trace. The other two strategies cannot return it because they will reset the current CCS when entering the error thunk.
 ***)
+
+
+mod MINISTG-MODULE-EVALUATION is
+    including MINISTG-MODULE .
+    protecting MINISTG-RELATION-EVALUATION .
+endm
+
+mod MINISTG-MODULE-EVALUATION is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+mod MINISTG-MODULE-EVALUATION-ARGS is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+mod MINISTG-MODULE-EVALUATION-TRACKTHUNKS is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+endm
+
+mod MINISTG-MODULE-STATIC is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STATIC .
+endm
+
+mod MINISTG-MODULE-STRICT is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STRICT .
+endm
+
+rew in MINISTG-MODULE-EVALUATION : getStackTraceSet (eval(pgm)) . 
+rew in MINISTG-MODULE-EVALUATION-ARGS : getStackTraceSet (eval(pgm)) . 
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STATIC : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STRICT : getStackTraceSet (eval(pgm)) .
+
+rew in MINISTG-MODULE-EVALUATION : getLastStackTrace (eval(pgm)) .             *** "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+rew in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .        *** "main" | "main.res" | "g.res" | "main.h" | "g.j"
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . *** "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+rew in MINISTG-MODULE-STATIC : getLastStackTrace (eval(pgm)) .                 *** "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+rew in MINISTG-MODULE-STRICT : getLastStackTrace (eval(pgm)) .                 *** "main" | "main.res" | "g" | "g.res" | "main.h" | "deconstr" | "constr" | "deconstr.f" | "g.j"
+--- rew in MINISTG-MODULE-STRICT :  (eval(pgm)) .

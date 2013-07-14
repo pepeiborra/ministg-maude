@@ -1,9 +1,0 @@
-mod MINISTG-OPTIMIZE is
-  pr MINISTG-SYNTAX .
-  
-  var E EX : Exp .
-  var X : Var .
-
-  crl let X = EX in E => 
-
-endm

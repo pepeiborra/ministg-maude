@@ -1,7 +1,7 @@
 
 load "prelude.stg" .
 
-mod MINISTG-SIMON1 is including MINISTG-PRELUDE .
+mod MINISTG-MODULE is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
@@ -12,31 +12,35 @@ eq pgm =
   .
 endm
 
-mod MINISTG-SIMON1-EVALUATION is
-  including MINISTG-SIMON1 .
+mod MINISTG-MODULE-EVALUATION is
+    including MINISTG-MODULE .
+    protecting MINISTG-RELATION-EVALUATION .
+endm
+
+mod MINISTG-MODULE-EVALUATION is
+  including MINISTG-MODULE .
   protecting  MINISTG-RELATION-EVALUATION .
 endm
 
-mod MINISTG-SIMON1-EVALUATION-ARGS is
-  including MINISTG-SIMON1 .
+mod MINISTG-MODULE-EVALUATION-ARGS is
+  including MINISTG-MODULE .
   protecting  MINISTG-RELATION-EVALUATION-ARGS .
 endm
 
-mod MINISTG-SIMON1-EVALUATION-TRACKTHUNKS is
-  including MINISTG-SIMON1 .
+mod MINISTG-MODULE-EVALUATION-TRACKTHUNKS is
+  including MINISTG-MODULE .
   protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
 endm
 
---- rewrite in MINISTG-SIMON1-EVALUATION : eval(pgm) .
---- rewrite in MINISTG-SIMON1-EVALUATION-ARGS : eval(pgm) .
-rewrite in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : eval(pgm) .
+mod MINISTG-MODULE-STATIC is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STATIC .
+endm
 
-
-rew in MINISTG-SIMON1-EVALUATION : getLastStackTrace (eval(pgm)) . *** Gives the stack: "main" | "main.g" | "dblInt" | "plusInt"
-rew in MINISTG-SIMON1-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) . *** Same stack as above
-rew in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . *** Same stack as above
-
-
+mod MINISTG-MODULE-STRICT is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STRICT .
+endm
 
 ***(
 - In all the cases, the program is annotated with -auto-all-deep
@@ -47,4 +51,18 @@ rew in MINISTG-SIMON1-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . *
 - The eager stack trace for this example would be: "main" | "main.g" | "dblInt" | "plusInt" which is exactly what we obtain
 
 ***)
+
+
+rew in MINISTG-MODULE-EVALUATION : getStackTraceSet (eval(pgm)) . 
+rew in MINISTG-MODULE-EVALUATION-ARGS : getStackTraceSet (eval(pgm)) . 
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STATIC : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STRICT : getStackTraceSet (eval(pgm)) .
+
+rew in MINISTG-MODULE-EVALUATION : getLastStackTrace (eval(pgm)) .             ***
+rew in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) .        ***
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . ***
+rew in MINISTG-MODULE-STATIC : getLastStackTrace (eval(pgm)) .                 ***
+rew in MINISTG-MODULE-STRICT : getLastStackTrace (eval(pgm)) .                 ***
+--- rew in MINISTG-MODULE-STRICT :  (eval(pgm)) .
 

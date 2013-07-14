@@ -32,13 +32,25 @@ mod MINISTG-SIMON9-EVALUATION-TRACKTHUNKS is
   protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
 endm
 
+mod MINISTG-SIMON9-STATIC is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-STATIC .
+endm
+
+mod MINISTG-SIMON9-STRICT is
+  including MINISTG-SIMON9 .
+  protecting  MINISTG-RELATION-STRICT .
+endm
+
 --- rewrite in MINISTG-SIMON9-EVALUATION : eval(pgm) .
 --- rewrite in MINISTG-SIMON9-EVALUATION-ARGS : eval(pgm) .
 rewrite in MINISTG-SIMON9-EVALUATION-TRACKTHUNKS : eval(pgm) .
 
 rew in MINISTG-SIMON9-EVALUATION : getLastStackTrace (eval(pgm)) . *** Gives the stack: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
 rew in MINISTG-SIMON9-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) . *** Same stack as above
-rew in MINISTG-SIMON9-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) . *** Same stack as above
+rew in MINISTG-SIMON9-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON9-STATIC : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-SIMON9-STRICT : getLastStackTrace (eval(pgm)) .
 
 
 ***(

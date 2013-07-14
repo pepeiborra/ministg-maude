@@ -5,7 +5,7 @@ fmod MAYBE{X :: TRIV} is
     op nothing  : -> Maybe{X} [ctor] .
 endfm
 
-fmod MINISTG-SORTS is
+fmod MINISTG-EXP is
      protecting QID .
      protecting INT .
      protecting STRING .
@@ -20,40 +20,48 @@ fmod MINISTG-SORTS is
      
      sort ConstructorExp .
      subsorts Constructor < ConstructorExp < Exp .
-     sort Stack .
-     subsort Continuation < Stack .
-     sorts Heap NeHeap .
-     subsort Binding < NeHeap < Heap .
-     sorts AltGroup NeAltGroup .
-     subsort Alt < NeAltGroup < AltGroup .
 
      vars Z E EE : Exp .
      var B : Binding .
-     vars H BB B1 B2 : Heap . 
 
      op let _ in _ : Binding Exp -> Exp [ctor gather (& &) format (g o g on+i -) ] .
-     op let { _ } in _ : Heap Exp -> Exp .
-     eq let { B ; BB } in Z = let B in let { BB } in Z .
-     eq let { nil } in Z = Z .
      op _ = _ : Var Obj -> Binding [ctor prec 39 format (d b o d)] .
-     op _;_ : Heap Heap -> Heap [ctor assoc prec 42 id: nil format (d m! no d)] .
-     op _;_ : NeHeap Heap -> NeHeap [ctor ditto] .
-     op nil : -> Heap [ctor] .
-     op __ : Stack Stack -> Stack [ctor assoc id: nil format (d n d) ] .
-     op nil : -> Stack [ctor] .
-
-     op case _ of { _ } : Exp AltGroup -> Exp [ctor format (g o g sb on+ b- o) ] .
-     op _;_ : AltGroup AltGroup -> AltGroup [ctor assoc prec 42 id: nil format(d d n d) ] .
-     op _;_ : NeAltGroup AltGroup -> NeAltGroup [ctor ditto ] .
-     op nil : -> AltGroup [ctor] .
      op _ -> _ : Var Exp -> Alt [ctor format (i d n+i -)] .
      op _ -> _ : ConstructorExp Exp -> Alt [ctor format (i d n+i -)] .
-
      op error _ : String -> Exp [ctor format (!b r o)] .
-
 endfm
 
-view Var from TRIV to MINISTG-SORTS is sort Elt to Var . endv
+view Var     from TRIV to MINISTG-EXP is sort Elt to Var . endv
+view Binding from TRIV to MINISTG-EXP is sort Elt to Binding . endv
+view Continuation from TRIV to MINISTG-EXP is sort Elt to Continuation . endv
+view Alt from TRIV to MINISTG-EXP is sort Elt to Alt . endv
+
+fmod MINISTG-SORTS is
+     including MINISTG-EXP .
+     protecting LIST-AND-SET{Binding}
+	* (sort List{Binding} to BindingList,
+	   sort Set{Binding} to Heap,
+	   sort NeSet{Binding} to NeHeap)
+        * (op __    : BindingList BindingList -> BindingList to (_;_) [format (d m! no d) prec 42],
+           op (_,_) : Heap Heap  -> Heap  to (_,_) [format (d m! no d) prec 42] ) .
+     protecting LIST{Continuation}
+        * (sort List{Continuation} to Stack,
+	   op __ : List{Continuation} List{Continuation} -> List{Continuation} to __ [format (d n d)]) .
+     protecting LIST{Alt}
+        * (sort List{Alt} to AltGroup,
+           sort NeList{Alt} to NeAltGroup)
+        * (op __ : AltGroup AltGroup -> AltGroup to (_;_) [format (d d n d) prec 42]) .
+
+     vars E Z : Exp .
+     var B : Binding .
+     var BB : BindingList . 
+
+     op case _ of { _ } : Exp AltGroup -> Exp [ctor format (g o g sb on+ b- o) ] .
+     op let { _ } in _ : BindingList Exp -> Exp .
+     eq let { B ; BB } in Z = let B in let { BB } in Z .
+     eq let { nil } in Z = Z .
+endfm
+
 view Atom from TRIV to MINISTG-SORTS is sort Elt to Atom . endv
 view AtomBinding from TRIV to MINISTG-SORTS is sort Elt to AtomBinding . endv
 
@@ -68,6 +76,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
 
      vars Z E EE : Exp .
      var B : Binding .
+     var BL : BindingList .
      vars H BB B1 B2 : Heap . 
      vars F X V V' : Var . 
      vars AA XX VV : AtomList .
@@ -150,7 +159,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
      --- equations provided in a later module  
 
      op _ [_] : Heap AtomBinding -> Heap .
-     eq [subst-heap-rec] : (B ; BB:NeHeap) [AB] = B [AB] ; BB:NeHeap [AB] .
+     eq [subst-heap-rec] : (B , BB:NeHeap) [AB] = B [AB] , BB:NeHeap [AB] .
      eq [subst-heap-1] : (X = O) [AB] = (X [AB]) = (O [AB]) .
 
      op _ [_] : AltGroup AtomBinding -> AltGroup .
@@ -183,17 +192,17 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
 
      var M : ArityMap .
      
-     op mkArityMap _ : Heap -> ArityMap .
-     eq mkArityMap (B ; H ) = mkArityMap H [owise] .
+     op mkArityMap _ : BindingList -> ArityMap .
+     eq mkArityMap (B ; BL ) = mkArityMap BL [owise] .
      eq mkArityMap nil = empty .
 
      *** 2. arity transforms the expression replacing adjacent terms by function applications, annotated by arity when known.
      op arity : ArityMap Obj -> Obj .
      --- equations provided in a later module  
 
-     op arity : ArityMap Heap -> Heap .
-     eq arity(M, (V = O ; BB)) = V = arity(M,O) ; arity(M,BB) .
-     eq arity(M, (nil).Heap) = nil .
+     op arity : ArityMap BindingList -> BindingList .
+     eq arity(M, (V = O ; BL)) = V = arity(M,O) ; arity(M,BL) .
+     eq arity(M, (nil).BindingList) = nil .
 
      op arity : ArityMap Exp -> Exp .
      eq arity(M, let B in E) = let arity(M, B) in arity(M, E) .
@@ -226,6 +235,7 @@ fmod MINISTG-METAL is
      vars F V : Var .
      vars AA VV Atoms : AtomList .
      var AB : AtomBinding .
+     var BL : BindingList .
      var ALT : AltGroup .
      var M : ArityMap .
      var H : Heap .
@@ -261,7 +271,7 @@ fmod MINISTG-METAL is
      eq FUN(VV -> Z) [AB] = FUN(VV -> Z [AB \\ VV]) .
      eq BLACKHOLE [AB] = BLACKHOLE .
 
-     eq mkArityMap (V = FUN(VV -> Z) ;  H) = insert(V, size(VV), mkArityMap H) .
+     eq mkArityMap (V = FUN(VV -> Z) ;  BL) = insert(V, size(VV), mkArityMap BL) .
 
      eq arity(M, THUNK (E)) = THUNK (arity(M, E)) .
      eq arity(M, CON(C Atoms)) = CON(C Atoms) .
@@ -279,6 +289,7 @@ fmod MINISTG-PROGRAM is
      var C : Constructor .
      var S : Stack .
      var H : Heap .
+     var BL : BindingList .
 
      **** Configuration constructor
 
@@ -299,8 +310,8 @@ fmod MINISTG-PROGRAM is
 
      **** command line interface
 
-     op eval : Heap -> Configuration .
-     eq eval(H) = bigstep( 'main STACK: nil HEAP: arity(mkArityMap(H),H) COUNTER: 0) .
+     op eval : BindingList -> Configuration .
+     eq eval(BL) = bigstep( (let { arity(mkArityMap(BL),BL) } in 'main) STACK: nil HEAP: nil COUNTER: 0) .
 
 endfm
 
@@ -334,35 +345,25 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
 	                STACK: S  HEAP: H COUNTER: N 
              => --------------------------------------------
                                E [V :-> V'] 
-                  [STACK: S  HEAP: V' = O ; H COUNTER: N + 1 ]
+                  [STACK: S  HEAP: V' = O , H COUNTER: N + 1 ]
                                                         if V' := qid(string(V) + string(N, 10)) .
 
      rl [THUNK] :                            X 
-                       STACK: S  HEAP: H ; X = THUNK (E)  ; H'  COUNTER: N 
+                       STACK: S  HEAP: X = THUNK (E), H  COUNTER: N 
                 =>   --------------------------------------------------------------
                                              E
-                     [STACK: (UPD X) S   HEAP: H ; X = BLACKHOLE ; H'  COUNTER: N] .
+                     [STACK: (UPD X) S   HEAP: X = BLACKHOLE, H  COUNTER: N] .
 
      crl [UPDATE1] : X
                      STACK: (UPD Y) S
-                     HEAP: H ; X = O ; H' ; Y = BLACKHOLE ; H'' 
+                     HEAP: X = O, Y = BLACKHOLE, H 
                      COUNTER: N
                  => ---------------------------------
                      X
                      [STACK: S
-                      HEAP: H ; X = O ; H' ; Y = O ; H''
+                      HEAP: X = O, Y = O, H
                       COUNTER: N ]                       if isValue(O) .
 
-
-     crl [UPDATE2] :  X
-                     STACK: (UPD Y) S
-                     HEAP: H ; Y = BLACKHOLE ; H' ; X = O ; H''
-                     COUNTER: N
-                 => -------------------------------------------
-                     X
-                     [STACK: S
-                      HEAP: H ; Y = O ; H' ; X = O ; H''
-                      COUNTER: N ]                            if isValue(O) .
                                             
 
      crl [CASE-CON] :     case V of { AA1 ; C XX -> E ; AA2 } 
@@ -370,7 +371,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                   => ----------------------------------------------
                                     E [ XX :-> AA ]  
                             [STACK: S HEAP: H  COUNTER: N ]
-                                                        if H' ; V = CON ( C AA) ; H'' := H .
+                                                        if H', V = CON ( C AA)  := H .
 
      rl [CASE-ANY-LIT] :
                          case L:Lit of { AA1 ; X -> E }
@@ -385,7 +386,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                   =>  ----------------------------------------
                                E [ X :-> V ]
                         [STACK: S HEAP: H COUNTER: N ]   
-	                                                         if H' ; V = O ; H'' := H /\
+	                                                         if V = O, H' := H /\
 	                                                            isValue(O) .
 
      rl [CASE] :                case E of { AA1 }
@@ -405,7 +406,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
 	       =>   -----------------------------------------------
                                   case V of { AA1 }
                             [STACK: S HEAP: H COUNTER: N ]
-                                                            if H' ; V = O ; H'' := H /\ isValue(O) .
+                                                            if V = O, H' := H /\ isValue(O) .
 
      crl [KNOWNCALL] :          FunApp F Ar AA 
                         STACK: S  HEAP: H  COUNTER: N 
@@ -413,7 +414,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                                  E [XX :-> AA]
                         [STACK: S  HEAP: H   COUNTER: N  ]
 	                                                if size(AA) = Ar /\ 
-                                                        H' ; F = FUN(XX -> E) ; H'' := H .
+                                                        F = FUN(XX -> E), H' := H .
 
  *** Eval/Apply rules
 
@@ -421,21 +422,21 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                    STACK: S  HEAP: H  COUNTER: N
                => --------------------------------
                     FunApp F' nothing (AA' AA)
-                   [STACK: S  HEAP: H  COUNTER: N]         if H' ; F = PAP(F' AA') ; H'' := H .
+                   [STACK: S  HEAP: H  COUNTER: N]         if F = PAP(F' AA'), H' := H .
 
     crl [RETFUN] :                      F
                      STACK: (ARGS  AA) S  HEAP: H  COUNTER: N
                  => -------------------------------------------
                                 FunApp F nothing AA 
                          [STACK: S  HEAP: H  COUNTER: N] 
-                                                           if H' ; F = O ; H'' := H /\ isFunOrPap O .
+                                                           if F = O, H' := H /\ isFunOrPap O .
 
      crl [EXACT] :      FunApp F nothing AA
                    STACK: S HEAP: H COUNTER: N 
                =>  ------------------------------
                           (E [XX :-> AA]) 
                    [STACK: S  HEAP: H  COUNTER: N ]
-                                                      if H' ; F = FUN(XX -> E) ; H'' := H /\
+                                                      if F = FUN(XX -> E), H' := H /\
 	                                                 size(AA) = size(XX) .
 
      crl [CALLK] :             FunApp F K:Maybe{Nat} (AA Rest:NeAtomList)
@@ -443,16 +444,16 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                =>  --------------------------------------------------------------------
                                             (E [XX :-> AA]) 
                     [STACK: (ARGS Rest:NeAtomList) S  HEAP: H  COUNTER: N ]  
-                                                      if H' ; F = FUN(XX -> E) ; H'' := H /\
+                                                      if F = FUN(XX -> E), H' := H /\
 	                                                 size(AA) = size(XX) .
 
      crl [PAP] :                       FunApp F K:Maybe{Nat} AA
                                  STACK: S HEAP: H COUNTER: N 
              =>  ------------------------------------------------------------------
                                                   X
-                   [STACK: S  HEAP: (X = PAP (F AA) ; H)  COUNTER: N + 1  ]
+                   [STACK: S  HEAP: (X = PAP (F AA) , H)  COUNTER: N + 1  ]
 
-                                                       if H' ; F = FUN(XX -> E) ; H'' := H /\
+                                                       if F = FUN(XX -> E), H' := H /\
                                                           size(AA) < size(XX) /\
 	                                                  X := qid ("$" + string(N, 10)) .
 
@@ -461,7 +462,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                => ------------------------------------------------------------
                                              F
                    [STACK: (ARGS AA) S  HEAP: H  COUNTER: N   ]
-                                                           if H' ; F = THUNK(E) ; H'' := H .
+                                                           if F = THUNK(E), H' := H .
 
 
 
@@ -491,7 +492,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
      crl [DONE] :                    V
                       STACK: nil HEAP: H COUNTER: N 
               => ---------------------------------------
-                                   Done O H               if H' ; V = O ; H'' := H 
+                                   Done O H               if V = O, H' := H 
                                                           /\ V =/= 'main .
 
      rl [PRIMOP-PLUS] :        plus# A1:Int A2:Int
@@ -541,7 +542,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                                   STACK: S  HEAP: H  COUNTER: N  
                      => -----------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(False) ; H  COUNTER: s N  ] 
+	                  [STACK: S  HEAP: X = CON(False) , H  COUNTER: s N  ] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 
@@ -550,7 +551,7 @@ mod MINISTG-RELATION is including MINISTG-PROGRAM .
                                   STACK: S  HEAP: H  COUNTER: N
                      => --------------------------------------------------------------
                                                  X
-	                  [STACK: S  HEAP: X = CON(True) ; H  COUNTER: s N] 
+	                  [STACK: S  HEAP: X = CON(True) , H  COUNTER: s N] 
             	                                           if X := qid ("$" + string(N, 10)) . 
 
 endm

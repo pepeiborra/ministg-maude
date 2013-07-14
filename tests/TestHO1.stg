@@ -1,20 +1,57 @@
 
 load "prelude.stg" .
 
-mod MINISTG-TESTHO1 is including MINISTG-PRELUDE .
+mod MINISTG-MODULE is including MINISTG-PRELUDE .
 
 op pgm : -> Heap .
 eq pgm =
   Prelude ;
   'list = THUNK('fromTo 'one 'two);
-  'main = THUNK( let  'res = THUNK('map 'dblInt 'list) in 'forcelist 'res)
+  'main = THUNK( let 'res = THUNK('map 'dblInt 'list) in 'forcelist 'res)
   .
 
 endm
 
 mod MINISTG-MODULE-EVALUATION is
-    including MINISTG-TESTHO1 .
+    including MINISTG-MODULE .
     protecting MINISTG-RELATION-EVALUATION .
 endm
 
-rewrite in MINISTG-MODULE-EVALUATION : eval(pgm) .
+mod MINISTG-MODULE-EVALUATION is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION .
+endm
+
+mod MINISTG-MODULE-EVALUATION-ARGS is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION-ARGS .
+endm
+
+mod MINISTG-MODULE-EVALUATION-TRACKTHUNKS is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-EVALUATION-TRACKTHUNKS .
+endm
+
+mod MINISTG-MODULE-STATIC is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STATIC .
+endm
+
+mod MINISTG-MODULE-STRICT is
+  including MINISTG-MODULE .
+  protecting  MINISTG-RELATION-STRICT .
+endm
+
+rew in MINISTG-MODULE-EVALUATION : getStackTraceSet (eval(pgm)) . *** Gives the stack: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
+rew in MINISTG-MODULE-EVALUATION-ARGS : getStackTraceSet (eval(pgm)) . *** Same stack as above
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STATIC : getStackTraceSet (eval(pgm)) .
+rew in MINISTG-MODULE-STRICT : getStackTraceSet (eval(pgm)) .
+
+rew in MINISTG-MODULE-EVALUATION : getLastStackTrace (eval(pgm)) . *** Gives the stack: "main" | "main.res" | "g.res" | "main.h" | "g.j" | "dblInt" | "plusInt"
+rew in MINISTG-MODULE-EVALUATION-ARGS : getLastStackTrace (eval(pgm)) . *** Same stack as above
+rew in MINISTG-MODULE-EVALUATION-TRACKTHUNKS : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-MODULE-STATIC : getLastStackTrace (eval(pgm)) .
+rew in MINISTG-MODULE-STRICT : getLastStackTrace (eval(pgm)) .
+
+
