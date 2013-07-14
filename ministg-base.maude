@@ -110,7 +110,7 @@ fmod MINISTG-SYNTAX is including MINISTG-SORTS .
 
      op vars _ : Exp -> AtomSet .
      eq vars(case E of { ALT }) = vars ALT, vars E .
-     eq vars(let V = O in E) = vars O, vars E \ V .
+     eq vars(let V = O in E) = vars O \ V, vars E \ V [owise] .
      eq vars(FunApp F Ar AA) = F, vars AA .
      eq vars(OP:PrimOp AA) = vars AA .
      eq vars(F EE) = vars F, vars EE .
